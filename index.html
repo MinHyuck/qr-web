@@ -46,8 +46,7 @@ else if (P.has('m')) {
 
   function loginUI() {
     html('<h2>지점 로그인</h2>' + field('i', 'ID') + field('p', '비밀번호', 'password') + '<button onclick="login()">로그인</button> <span id="m"></span>'
-      + '<p><a href="#" onclick="signupUI();return false">계정 만들기</a> · <a href="#" onclick="findIdUI();return false">아이디 찾기</a> · <a href="#" onclick="findPwUI();return false">비밀번호 찾기</a></p>'
-      + '<hr><button onclick="adminLoginUI()">관리자(고객사) 조회</button>');
+      + '<p><a href="#" onclick="signupUI();return false">계정 만들기</a> · <a href="#" onclick="findIdUI();return false">아이디 찾기</a> · <a href="#" onclick="findPwUI();return false">비밀번호 찾기</a></p>');
     window.login = async () => { $('m').textContent = '확인 중...'; const j = await call({ a: 'login', id: $('i').value, pw: $('p').value }).catch(net); if (j.session) { sessionStorage.setItem('s', j.session); manageUI(); } else $('m').textContent = j.error; };
   }
   window.signupUI = () => {
@@ -67,11 +66,6 @@ else if (P.has('m')) {
     html('<h2>비밀번호 찾기</h2><small>ID와 가입 이메일이 일치하면 임시 비밀번호를 메일로 보내드립니다.</small>' + field('fi', 'ID') + field('fe', '이메일') + '<button onclick="findPw()">임시 비밀번호 받기</button> ' + back + '<p id="m"></p>');
     window.findPw = async () => { $('m').textContent = '처리 중...'; const j = await call({ a: 'findpw', id: $('fi').value, email: $('fe').value }).catch(net); $('m').textContent = j.msg || j.error; };
   };
-  window.adminLoginUI = () => {
-    html('<h2>관리자 로그인</h2><small>고객사 담당자용 조회 계정입니다.</small>' + field('i', 'ID') + field('p', '비밀번호', 'password') + '<button onclick="alogin()">로그인</button> ' + back + ' <span id="m"></span>');
-    window.alogin = async () => { $('m').textContent = '확인 중...'; const j = await call({ a: 'alogin', id: $('i').value, pw: $('p').value }).catch(net); if (j.session) { sessionStorage.setItem('as', j.session); viewUI({ s: j.session }); } else $('m').textContent = j.error; };
-  };
-
   let lastTok = '', timer;
   function manageUI() {
     html('<h2 id="t"></h2><p id="v"></p><div id="qr" style="margin:10px 0"></div><hr><b>교육장 주소 등록/변경</b> <small>(교육장에서 이 기기의 GPS로 확인 후 저장됩니다)</small><input id="a"><b>허용 반경(m)</b><input id="r" type="number"><button onclick="saveV()">저장</button> <span id="s"></span>'
@@ -99,12 +93,23 @@ else if (P.has('m')) {
     $('cm').textContent = '처리 중...'; const j = await call({ a: 'chpw', s: S(), old: $('o').value, nw: $('n1').value }).catch(net);
     $('cm').textContent = j.ok ? '변경되었습니다' : (j.msg || j.error); if (j.ok) { $('o').value = $('n1').value = ''; }
   };
-  AS() ? viewUI({ s: AS() }) : S() ? manageUI() : loginUI();
+  S() ? manageUI() : loginUI();
 }
+
+// ===== 고객사 관리자: 접속하면 바로 로그인 -> 출석 현황 (EXE 조회용은 ?admin 으로 열림) =====
+else if (P.has('admin')) { const t = sessionStorage.getItem('as'); t ? viewUI({ s: t }) : adminLoginUI(); }
 
 // ===== 고객사 조회 (관리자 계정 로그인 또는 조회 링크 키) =====
 else if (P.get('v')) viewUI({ k: P.get('v') });
 else html('<h2>출석 QR</h2><p>QR을 스캔해서 접속해주세요.</p>');
+
+function adminLoginUI() {
+  html('<h2>출석 현황 조회</h2><small>관리자 계정으로 로그인하세요.</small>' + field('i', 'ID') + field('p', '비밀번호', 'password') + '<button onclick="alogin()">로그인</button> <span id="m"></span>');
+  window.alogin = async () => {
+    $('m').textContent = '확인 중...'; const j = await call({ a: 'alogin', id: $('i').value, pw: $('p').value }).catch(() => ({ error: '서버 연결 실패' }));
+    if (j.session) { sessionStorage.setItem('as', j.session); viewUI({ s: j.session }); } else $('m').textContent = j.error;
+  };
+}
 
 function viewUI(auth) {
   document.body.className = 'wide';
@@ -112,7 +117,7 @@ function viewUI(auth) {
   let rows = [], bid = '';
   html('<h2 id="h"></h2><p id="sum"></p><p>날짜 <input id="d" type="date" style="width:auto;margin:0" value="' + today + '" onchange="vload()"> <button onclick="csv()">엑셀(CSV) 다운로드</button> <small style="color:#666">· 10초마다 자동 갱신</small>'
     + (auth.s ? ' · <a href="#" onclick="adminOut();return false">로그아웃</a>' : '') + '</p><div id="tb"></div>');
-  window.adminOut = () => { sessionStorage.removeItem('as'); location.href = location.pathname + '?m'; };
+  window.adminOut = () => { sessionStorage.removeItem('as'); location.href = location.pathname + '?admin'; };
   window.vload = async () => {
     const j = await call({ a: 'view', ...auth, d: $('d').value }).catch(() => ({ error: '서버 연결 실패' }));
     if (j.error === 'login') return window.adminOut(); if (j.error) return $('h').textContent = j.error;
