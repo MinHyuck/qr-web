@@ -117,10 +117,20 @@ else if (P.get('v')) viewUI({ k: P.get('v') });
 else html('<h2>출석 QR</h2><p>QR을 스캔해서 접속해주세요.</p>');
 
 function adminLoginUI() {
-  html('<h2>출석 현황 조회</h2><small>관리자 계정으로 로그인하세요.</small>' + field('i', 'ID') + field('p', '비밀번호', 'password') + '<button onclick="alogin()">로그인</button> <span id="m"></span>');
+  html('<h2>출석 현황 조회</h2><small>관리자 계정으로 로그인하세요.</small>' + field('i', 'ID') + field('p', '비밀번호', 'password') + '<button onclick="alogin()">로그인</button> <span id="m"></span><p><a href="#" onclick="adminSignupUI();return false">계정 만들기</a></p>');
   window.alogin = async () => {
     $('m').textContent = '확인 중...'; const j = await call({ a: 'alogin', id: $('i').value, pw: $('p').value }).catch(() => ({ error: '서버 연결 실패' }));
     if (j.session) { sessionStorage.setItem('as', j.session); viewUI({ s: j.session }); } else $('m').textContent = j.error;
+  };
+}
+
+function adminSignupUI() { // 고객사 조회계정 신청 (본사 승인 후 로그인 가능)
+  html('<h2>조회 계정 만들기</h2><small>신청 후 관리자가 승인하면 로그인할 수 있습니다.</small>' + field('so', '소속 / 담당자 이름') + field('se', '이메일') + field('si', '로그인 ID (영문/숫자 3자 이상)')
+    + field('s1', '비밀번호 (6자 이상)', 'password') + field('s2', '비밀번호 확인', 'password') + '<button onclick="asignup()">신청</button> <a href="#" onclick="adminLoginUI();return false">← 로그인으로</a><p id="m" style="white-space:pre-line"></p>');
+  window.asignup = async () => {
+    if ($('s1').value !== $('s2').value) return $('m').textContent = '비밀번호 확인이 일치하지 않습니다';
+    $('m').textContent = '신청 중...';
+    const j = await call({ a: 'asignup', org: $('so').value, email: $('se').value, id: $('si').value, pw: $('s1').value }).catch(() => ({ error: '서버 연결 실패' })); $('m').textContent = j.msg || j.error;
   };
 }
 
