@@ -48,7 +48,7 @@ else if (P.has('m')) {
   };
   window.logout = () => { sessionStorage.removeItem('s'); clearInterval(timer); loginUI(); };
   async function load() {
-    const j = await call({ a: 'my', s: S() }).catch(() => ({ error: 'net' })); if (j.error === 'login') return logout(); if (j.error) return;
+    const j = await call({ a: 'my', s: S() }).catch(() => ({ error: 'net' })); if (j.error === 'login') return logout(); if (j.error) return $('v').innerHTML = '<b style="color:#c00">불러오기 실패: ' + esc(j.error === 'net' ? '서버에 연결할 수 없습니다 (인터넷 확인)' : j.error) + '</b>';
     $('t').textContent = j.name + ' 출석 QR';
     if (!j.roadAddress) { // 교육장 미등록: 매니저가 현장에서 직접 등록 (GPS 검증)
       $('v').innerHTML = '<b style="color:#c00">교육장이 아직 등록되지 않았습니다.<br>교육장에서 아래에 주소를 입력하고 저장하세요.</b>'; $('qr').innerHTML = ''; $('u').textContent = ''; lastTok = '';
