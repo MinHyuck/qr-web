@@ -16,7 +16,10 @@ const $ = id => document.getElementById(id), P = new URLSearchParams(location.se
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const call = o => fetch(API, { method: 'POST', body: JSON.stringify(o) }).then(r => r.json()); // text/plain 이라 CORS preflight 없음
 const html = h => $('app').innerHTML = h;
-const gps = (ok, fail) => navigator.geolocation.getCurrentPosition(ok, e => fail(e.message), { enableHighAccuracy: true, timeout: 15000 });
+// EXE(Electron)에는 구글 위치서비스 키가 없어서 navigator.geolocation 이 안 됨 -> EXE 가 윈도우 위치를 gpsBridge 로 제공
+const gps = (ok, fail) => window.gpsBridge
+  ? window.gpsBridge.get().then(c => ok({ coords: c }), e => fail(String(e.message || e).replace(/^Error invoking remote method 'gps': Error: /, '')))
+  : navigator.geolocation.getCurrentPosition(ok, e => fail(e.message), { enableHighAccuracy: true, timeout: 15000 });
 
 // ===== 휴대폰: 출석 =====
 if (P.get('c')) {
@@ -40,15 +43,18 @@ else if (P.has('m')) {
     window.login = async () => { $('m').textContent = '확인 중...'; const j = await call({ a: 'login', id: $('i').value, pw: $('p').value }); if (j.session) { sessionStorage.setItem('s', j.session); manageUI(); } else $('m').textContent = j.error; }; };
   let lastTok = '', timer;
   const manageUI = () => {
-    html('<h2 id="t"></h2><p id="v"></p><div id="qr" style="margin:10px 0"></div><p id="u" style="word-break:break-all;font-size:12px"></p><hr><b>교육장 주소 변경</b> <small>(교육장에서 노트북으로 변경해야 합니다)</small><input id="a"><b>허용 반경(m)</b><input id="r" type="number"><button onclick="saveV()">저장</button> <span id="s"></span><h3>오늘 출석 현황</h3><div id="rows"></div><p><a href="#" onclick="logout();return false">로그아웃</a></p>');
+    html('<h2 id="t"></h2><p id="v"></p><div id="qr" style="margin:10px 0"></div><p id="u" style="word-break:break-all;font-size:12px"></p><hr><b>교육장 주소 등록/변경</b> <small>(교육장에서 이 기기의 GPS로 확인 후 저장됩니다)</small><input id="a"><b>허용 반경(m)</b><input id="r" type="number"><button onclick="saveV()">저장</button> <span id="s"></span><h3>오늘 출석 현황</h3><div id="rows"></div><p><a href="#" onclick="logout();return false">로그아웃</a></p>');
     lastTok = ''; load(); clearInterval(timer); timer = setInterval(load, 10000);
   };
   window.logout = () => { sessionStorage.removeItem('s'); clearInterval(timer); loginUI(); };
   async function load() {
     const j = await call({ a: 'my', s: S() }).catch(() => ({ error: 'net' })); if (j.error === 'login') return logout(); if (j.error) return;
-    $('t').textContent = j.name + ' 출석 QR'; $('v').innerHTML = '교육장: <b>' + esc(j.roadAddress) + '</b> (반경 ' + j.radius + 'm)';
+    $('t').textContent = j.name + ' 출석 QR';
+    if (!j.roadAddress) { // 교육장 미등록: 매니저가 현장에서 직접 등록 (GPS 검증)
+      $('v').innerHTML = '<b style="color:#c00">교육장이 아직 등록되지 않았습니다.<br>교육장에서 아래에 주소를 입력하고 저장하세요.</b>'; $('qr').innerHTML = ''; $('u').textContent = ''; lastTok = '';
+    } else $('v').innerHTML = '교육장: <b>' + esc(j.roadAddress) + '</b> (반경 ' + j.radius + 'm)';
     const url = location.origin + location.pathname + '?c=' + j.id + '&t=' + j.token;
-    if (j.token !== lastTok) { lastTok = j.token; $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, width: 260, height: 260 }); $('u').textContent = url; }
+    if (j.roadAddress && j.token !== lastTok) { lastTok = j.token; $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, width: 260, height: 260 }); $('u').textContent = url; }
     if (!$('a').value) { $('a').value = j.address; $('r').value = j.radius; }
     $('rows').innerHTML = '<table>' + j.rows.map(x => '<tr class="' + (x.final === 'O' ? 'ok' : 'no') + '"><td>' + esc(String(x.ts).slice(11)) + '</td><td>' + esc(x.name) + '</td><td>' + (x.final === 'O' ? '출석' : '실패') + '</td><td>' + esc(x.dist) + 'm</td></tr>').join('') + '</table>';
   }
