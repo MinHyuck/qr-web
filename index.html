@@ -54,7 +54,7 @@ else if (P.has('m')) {
       $('v').innerHTML = '<b style="color:#c00">교육장이 아직 등록되지 않았습니다.<br>교육장에서 아래에 주소를 입력하고 저장하세요.</b>'; $('qr').innerHTML = ''; $('u').textContent = ''; lastTok = '';
     } else $('v').innerHTML = '교육장: <b>' + esc(j.roadAddress) + '</b> (반경 ' + j.radius + 'm)';
     const url = location.origin + location.pathname + '?c=' + encodeURIComponent(j.id) + '&t=' + j.token; // ID에 한글이 있으면 QR 라이브러리가 오류 -> 인코딩
-    if (j.roadAddress && j.token !== lastTok) { lastTok = j.token; $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, width: 260, height: 260 }); $('u').textContent = url; }
+    if (j.roadAddress && j.token !== lastTok) { lastTok = j.token; $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, width: 260, height: 260 }); }
     if (!$('a').value) { $('a').value = j.address; $('r').value = j.radius; }
     $('rows').innerHTML = '<table>' + j.rows.map(x => '<tr class="' + (x.final === 'O' ? 'ok' : 'no') + '"><td>' + esc(String(x.ts).slice(11)) + '</td><td>' + esc(x.name) + '</td><td>' + (x.final === 'O' ? '출석' : '실패') + '</td><td>' + esc(x.dist) + 'm</td></tr>').join('') + '</table>';
   }
