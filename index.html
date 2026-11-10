@@ -69,7 +69,7 @@ else if (P.has('m')) {
   let lastTok = '', timer;
   function manageUI() {
     html('<h2 id="t"></h2><p id="v"></p><div id="qr" style="margin:10px 0"></div><hr><b>교육장 주소 등록/변경</b> <small>(교육장에서 이 기기의 GPS로 확인 후 저장됩니다)</small><input id="a"><b>허용 반경(m)</b><input id="r" type="number"><button onclick="saveV()">저장</button> <span id="s"></span>'
-      + '<h3>오늘 출석 현황</h3><div id="cnt" style="font-size:22px;margin:6px 0"></div><div id="rows"></div><hr><details><summary><b>비밀번호 변경</b></summary>' + field('o', '현재 비밀번호', 'password') + field('n1', '새 비밀번호 (6자 이상)', 'password') + '<button onclick="chpw()">변경</button> <span id="cm"></span></details><p><a href="#" onclick="logout();return false">로그아웃</a></p>');
+      + '<h3>오늘 출석 현황</h3><div id="cnt" style="font-size:22px;margin:6px 0"></div><div id="rows"></div><hr><p><a href="#" onclick="logout();return false">로그아웃</a></p>');
     lastTok = ''; load(); clearInterval(timer); timer = setInterval(load, 10000);
   }
   window.logout = () => { sessionStorage.removeItem('s'); clearInterval(timer); loginUI(); };
@@ -90,10 +90,6 @@ else if (P.has('m')) {
     $('s').textContent = '내 위치 확인 중...';
     gps(async p => { $('s').textContent = '확인 중...'; const j = await call({ a: 'myvenue', s: S(), address: $('a').value, radius: $('r').value, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
       $('s').textContent = j.ok ? '저장됨' : (j.msg || j.error); lastTok = ''; load(); }, e => $('s').textContent = '위치 권한을 허용해야 주소를 바꿀 수 있습니다 (' + e + ')');
-  };
-  window.chpw = async () => {
-    $('cm').textContent = '처리 중...'; const j = await call({ a: 'chpw', s: S(), old: $('o').value, nw: $('n1').value }).catch(net);
-    $('cm').textContent = j.ok ? '변경되었습니다' : (j.msg || j.error); if (j.ok) { $('o').value = $('n1').value = ''; }
   };
   S() ? manageUI() : loginUI();
 }
