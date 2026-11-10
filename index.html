@@ -6,7 +6,7 @@ body.wide{max-width:1000px}
 input{width:100%;font-size:16px;padding:8px;box-sizing:border-box;margin:4px 0 10px}
 button{font-size:16px;padding:8px 16px;margin:4px 0}
 table{border-collapse:collapse}td,th{border:1px solid #bbb;padding:5px 8px}
-.ok{background:#eefbee}.no{background:#fdeeee}#m,#s{white-space:pre-line}
+.ok{background:#eefbee}.no{background:#fdeeee}#m,#s,#cm{white-space:pre-line}
 </style></head><body>
 <div id="app"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -16,6 +16,7 @@ const $ = id => document.getElementById(id), P = new URLSearchParams(location.se
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const call = o => fetch(API, { method: 'POST', body: JSON.stringify(o) }).then(r => r.json()); // text/plain 이라 CORS preflight 없음
 const html = h => $('app').innerHTML = h;
+const field = (id, ph, type) => '<input id="' + id + '" placeholder="' + ph + '"' + (type ? ' type="' + type + '"' : '') + '>';
 // EXE(Electron)에는 구글 위치서비스 키가 없어서 navigator.geolocation 이 안 됨 -> EXE 가 윈도우 위치를 gpsBridge 로 제공
 const gps = (ok, fail) => window.gpsBridge
   ? window.gpsBridge.get().then(c => ok({ coords: c }), e => fail(String(e.message || e).replace(/^Error invoking remote method 'gps': Error: /, '')))
@@ -36,22 +37,53 @@ if (P.get('c')) {
   };
 }
 
-// ===== 지점 담당자: 로그인 / QR / 주소변경 / 오늘 현황 =====
+// ===== 지점 담당자 (로그인 / 계정 만들기 / 아이디·비밀번호 찾기 / QR / 주소 / 오늘 현황) + 관리자(고객사) 로그인 =====
 else if (P.has('m')) {
-  const S = () => sessionStorage.getItem('s');
-  const loginUI = () => { html('<h2>지점 로그인</h2><input id="i" placeholder="ID"><input id="p" type="password" placeholder="비밀번호"><button onclick="login()">로그인</button> <span id="m"></span>');
-    window.login = async () => { $('m').textContent = '확인 중...'; const j = await call({ a: 'login', id: $('i').value, pw: $('p').value }); if (j.session) { sessionStorage.setItem('s', j.session); manageUI(); } else $('m').textContent = j.error; }; };
-  let lastTok = '', timer;
-  const manageUI = () => {
-    html('<h2 id="t"></h2><p id="v"></p><div id="qr" style="margin:10px 0"></div><p id="u" style="word-break:break-all;font-size:12px"></p><hr><b>교육장 주소 등록/변경</b> <small>(교육장에서 이 기기의 GPS로 확인 후 저장됩니다)</small><input id="a"><b>허용 반경(m)</b><input id="r" type="number"><button onclick="saveV()">저장</button> <span id="s"></span><h3>오늘 출석 현황</h3><div id="rows"></div><p><a href="#" onclick="logout();return false">로그아웃</a></p>');
-    lastTok = ''; load(); clearInterval(timer); timer = setInterval(load, 10000);
+  const S = () => sessionStorage.getItem('s'), AS = () => sessionStorage.getItem('as');
+  const net = () => ({ error: '서버 연결 실패' });
+  const back = '<a href="#" onclick="back();return false">← 로그인으로</a>';
+  window.back = () => loginUI();
+
+  function loginUI() {
+    html('<h2>지점 로그인</h2>' + field('i', 'ID') + field('p', '비밀번호', 'password') + '<button onclick="login()">로그인</button> <span id="m"></span>'
+      + '<p><a href="#" onclick="signupUI();return false">계정 만들기</a> · <a href="#" onclick="findIdUI();return false">아이디 찾기</a> · <a href="#" onclick="findPwUI();return false">비밀번호 찾기</a></p>'
+      + '<hr><button onclick="adminLoginUI()">관리자(고객사) 조회</button>');
+    window.login = async () => { $('m').textContent = '확인 중...'; const j = await call({ a: 'login', id: $('i').value, pw: $('p').value }).catch(net); if (j.session) { sessionStorage.setItem('s', j.session); manageUI(); } else $('m').textContent = j.error; };
+  }
+  window.signupUI = () => {
+    html('<h2>계정 만들기</h2><small>신청 후 관리자가 승인하면 로그인할 수 있습니다.</small>' + field('sn', '지점명') + field('sp', '담당자 이름') + field('se', '이메일 (아이디/비밀번호 찾기에 사용)')
+      + field('si', '로그인 ID (영문/숫자 3자 이상)') + field('s1', '비밀번호 (6자 이상)', 'password') + field('s2', '비밀번호 확인', 'password') + '<button onclick="signup()">신청</button> ' + back + '<p id="m"></p>');
+    window.signup = async () => {
+      if ($('s1').value !== $('s2').value) return $('m').textContent = '비밀번호 확인이 일치하지 않습니다';
+      $('m').textContent = '신청 중...';
+      const j = await call({ a: 'signup', name: $('sn').value, person: $('sp').value, email: $('se').value, id: $('si').value, pw: $('s1').value }).catch(net); $('m').textContent = j.msg || j.error;
+    };
   };
+  window.findIdUI = () => {
+    html('<h2>아이디 찾기</h2><small>가입할 때 입력한 이메일로 아이디를 보내드립니다.</small>' + field('fe', '이메일') + '<button onclick="findId()">아이디 메일로 받기</button> ' + back + '<p id="m"></p>');
+    window.findId = async () => { $('m').textContent = '처리 중...'; const j = await call({ a: 'findid', email: $('fe').value }).catch(net); $('m').textContent = j.msg || j.error; };
+  };
+  window.findPwUI = () => {
+    html('<h2>비밀번호 찾기</h2><small>ID와 가입 이메일이 일치하면 임시 비밀번호를 메일로 보내드립니다.</small>' + field('fi', 'ID') + field('fe', '이메일') + '<button onclick="findPw()">임시 비밀번호 받기</button> ' + back + '<p id="m"></p>');
+    window.findPw = async () => { $('m').textContent = '처리 중...'; const j = await call({ a: 'findpw', id: $('fi').value, email: $('fe').value }).catch(net); $('m').textContent = j.msg || j.error; };
+  };
+  window.adminLoginUI = () => {
+    html('<h2>관리자 로그인</h2><small>고객사 담당자용 조회 계정입니다.</small>' + field('i', 'ID') + field('p', '비밀번호', 'password') + '<button onclick="alogin()">로그인</button> ' + back + ' <span id="m"></span>');
+    window.alogin = async () => { $('m').textContent = '확인 중...'; const j = await call({ a: 'alogin', id: $('i').value, pw: $('p').value }).catch(net); if (j.session) { sessionStorage.setItem('as', j.session); viewUI({ s: j.session }); } else $('m').textContent = j.error; };
+  };
+
+  let lastTok = '', timer;
+  function manageUI() {
+    html('<h2 id="t"></h2><p id="v"></p><div id="qr" style="margin:10px 0"></div><hr><b>교육장 주소 등록/변경</b> <small>(교육장에서 이 기기의 GPS로 확인 후 저장됩니다)</small><input id="a"><b>허용 반경(m)</b><input id="r" type="number"><button onclick="saveV()">저장</button> <span id="s"></span>'
+      + '<h3>오늘 출석 현황</h3><div id="rows"></div><hr><b>비밀번호 변경</b>' + field('o', '현재 비밀번호', 'password') + field('n1', '새 비밀번호 (6자 이상)', 'password') + '<button onclick="chpw()">변경</button> <span id="cm"></span><p><a href="#" onclick="logout();return false">로그아웃</a></p>');
+    lastTok = ''; load(); clearInterval(timer); timer = setInterval(load, 10000);
+  }
   window.logout = () => { sessionStorage.removeItem('s'); clearInterval(timer); loginUI(); };
   async function load() {
     const j = await call({ a: 'my', s: S() }).catch(() => ({ error: 'net' })); if (j.error === 'login') return logout(); if (j.error) return $('v').innerHTML = '<b style="color:#c00">불러오기 실패: ' + esc(j.error === 'net' ? '서버에 연결할 수 없습니다 (인터넷 확인)' : j.error) + '</b>';
     $('t').textContent = j.name + ' 출석 QR';
     if (!j.roadAddress) { // 교육장 미등록: 매니저가 현장에서 직접 등록 (GPS 검증)
-      $('v').innerHTML = '<b style="color:#c00">교육장이 아직 등록되지 않았습니다.<br>교육장에서 아래에 주소를 입력하고 저장하세요.</b>'; $('qr').innerHTML = ''; $('u').textContent = ''; lastTok = '';
+      $('v').innerHTML = '<b style="color:#c00">교육장이 아직 등록되지 않았습니다.<br>교육장에서 아래에 주소를 입력하고 저장하세요.</b>'; $('qr').innerHTML = ''; lastTok = '';
     } else $('v').innerHTML = '교육장: <b>' + esc(j.roadAddress) + '</b> (반경 ' + j.radius + 'm)';
     const url = location.origin + location.pathname + '?c=' + encodeURIComponent(j.id) + '&t=' + j.token; // ID에 한글이 있으면 QR 라이브러리가 오류 -> 인코딩
     if (j.roadAddress && j.token !== lastTok) { lastTok = j.token; $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, width: 260, height: 260 }); }
@@ -60,23 +92,33 @@ else if (P.has('m')) {
   }
   window.saveV = () => {
     $('s').textContent = '내 위치 확인 중...';
-    gps(async p => { $('s').textContent = '확인 중...'; const j = await call({ a: 'myvenue', s: S(), address: $('a').value, radius: $('r').value, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy });
+    gps(async p => { $('s').textContent = '확인 중...'; const j = await call({ a: 'myvenue', s: S(), address: $('a').value, radius: $('r').value, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
       $('s').textContent = j.ok ? '저장됨' : (j.msg || j.error); lastTok = ''; load(); }, e => $('s').textContent = '위치 권한을 허용해야 주소를 바꿀 수 있습니다 (' + e + ')');
   };
-  S() ? manageUI() : loginUI();
+  window.chpw = async () => {
+    $('cm').textContent = '처리 중...'; const j = await call({ a: 'chpw', s: S(), old: $('o').value, nw: $('n1').value }).catch(net);
+    $('cm').textContent = j.ok ? '변경되었습니다' : (j.msg || j.error); if (j.ok) { $('o').value = $('n1').value = ''; }
+  };
+  AS() ? viewUI({ s: AS() }) : S() ? manageUI() : loginUI();
 }
 
-// ===== 고객사: 실시간 / 날짜별 조회 =====
-else if (P.get('v')) {
+// ===== 고객사 조회 (관리자 계정 로그인 또는 조회 링크 키) =====
+else if (P.get('v')) viewUI({ k: P.get('v') });
+else html('<h2>출석 QR</h2><p>QR을 스캔해서 접속해주세요.</p>');
+
+function viewUI(auth) {
   document.body.className = 'wide';
   const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   let rows = [], bid = '';
-  html('<h2 id="h"></h2><p id="sum"></p><p>날짜 <input id="d" type="date" style="width:auto;margin:0" value="' + today + '" onchange="load()"> <button onclick="csv()">엑셀(CSV) 다운로드</button> <small style="color:#666">· 10초마다 자동 갱신</small></p><div id="tb"></div>');
-  window.load = async () => {
-    const j = await call({ a: 'view', k: P.get('v'), d: $('d').value }).catch(() => ({ error: '서버 연결 실패' })); if (j.error) return $('h').textContent = j.error;
+  html('<h2 id="h"></h2><p id="sum"></p><p>날짜 <input id="d" type="date" style="width:auto;margin:0" value="' + today + '" onchange="vload()"> <button onclick="csv()">엑셀(CSV) 다운로드</button> <small style="color:#666">· 10초마다 자동 갱신</small>'
+    + (auth.s ? ' · <a href="#" onclick="adminOut();return false">로그아웃</a>' : '') + '</p><div id="tb"></div>');
+  window.adminOut = () => { sessionStorage.removeItem('as'); location.href = location.pathname + '?m'; };
+  window.vload = async () => {
+    const j = await call({ a: 'view', ...auth, d: $('d').value }).catch(() => ({ error: '서버 연결 실패' }));
+    if (j.error === 'login') return window.adminOut(); if (j.error) return $('h').textContent = j.error;
     rows = j.rows; const ok = n => new Set(rows.filter(r => r.bid === n && r.final === 'O').map(r => r.name)).size;
     $('h').textContent = j.day + ' 출석 현황';
-    $('sum').innerHTML = j.branches.map(b => '<a href="#" onclick="sb(\'' + b.id + '\');return false">' + esc(b.name) + ' <b>' + ok(b.id) + '명</b></a>').join(' · ') + ' · <a href="#" onclick="sb(\'\');return false">전체</a>';
+    $('sum').innerHTML = j.branches.map(b => '<a href="#" onclick="sb(\'' + esc(b.id) + '\');return false">' + esc(b.name) + ' <b>' + ok(b.id) + '명</b></a>').join(' · ') + ' · <a href="#" onclick="sb(\'\');return false">전체</a>';
     draw();
   };
   window.sb = id => { bid = id; draw(); };
@@ -85,8 +127,6 @@ else if (P.get('v')) {
   window.csv = () => { const q = s => '"' + String(s ?? '').replace(/"/g, '""') + '"';
     const t = '﻿일시,지점,이름,결과,거리(m),등록 교육장,확인된 주소\r\n' + rows.map(r => [r.ts, r.branch, r.name, r.final === 'O' ? '출석' : '실패', r.dist, r.venue, r.gps].map(q).join(',')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([t], { type: 'text/csv;charset=utf-8' })); a.download = 'attendance_' + $('d').value + '.csv'; a.click(); };
-  load(); setInterval(load, 10000);
+  vload(); setInterval(vload, 10000);
 }
-
-else html('<h2>출석 QR</h2><p>QR을 스캔해서 접속해주세요.</p>');
 </script></body></html>
