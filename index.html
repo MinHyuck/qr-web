@@ -68,16 +68,23 @@ else if (P.has('m')) {
     html('<h2>비밀번호 찾기</h2><small>ID와 가입 이메일이 일치하면 임시 비밀번호를 메일로 보내드립니다.</small>' + field('fi', 'ID') + field('fe', '이메일') + '<button onclick="findPw()">임시 비밀번호 받기</button> ' + back + '<p id="m"></p>');
     window.findPw = async () => { $('m').textContent = '처리 중...'; const j = await call({ a: 'findpw', id: $('fi').value, email: $('fe').value }).catch(net); $('m').textContent = j.msg || j.error; };
   };
-  let lastTok = '', timer;
+  let lastTok = '', timer, tick, nextAt = 0, busy = false;
+  const ticker = () => { // QR 은 60초마다 바뀜 — 남은 시간 표시, 0초가 되면 새 QR 을 바로 받아옴
+    if (!nextAt) return; const s = Math.max(0, Math.ceil((nextAt - Date.now()) / 1000));
+    $('qrt').textContent = '🔄 QR은 60초마다 자동으로 바뀝니다 · 다음 갱신까지 ' + s + '초';
+    if (s === 0) { nextAt = Date.now() + 5000; load(); } // 실패해도 5초 뒤 재시도
+  };
   function manageUI() {
-    html('<h2 id="t"></h2><p id="v"></p><div id="qr" style="margin:10px 0"></div><hr><b>교육장 주소 등록/변경</b> <small>(교육장에서 이 기기의 GPS로 현재 위치를 확인한 뒤 저장됩니다)</small><br><button onclick="fillV()">📍 현재 위치로 주소 불러오기</button><input id="a" placeholder="불러온 주소가 여기에 표시됩니다 (필요하면 수정 가능)"><button onclick="saveV()">저장</button> <span id="s"></span>'
+    html('<h2 id="t"></h2><p id="v"></p><div id="qr" style="margin:10px 0"></div><div id="qrt" style="color:#666;font-size:14px"></div><hr><b>교육장 주소 등록/변경</b> <small>(교육장에서 이 기기의 GPS로 현재 위치를 확인한 뒤 저장됩니다)</small><br><button onclick="fillV()">📍 현재 위치로 주소 불러오기</button><input id="a" placeholder="불러온 주소가 여기에 표시됩니다 (필요하면 수정 가능)"><button onclick="saveV()">저장</button> <span id="s"></span>'
       + '<h3>오늘 출석 현황</h3><div id="cnt" style="font-size:22px;margin:6px 0"></div><div id="rows"></div><hr><p><a href="#" onclick="logout();return false">로그아웃</a></p>');
-    lastTok = ''; load(); clearInterval(timer); timer = setInterval(load, 10000);
+    lastTok = ''; nextAt = 0; load(); clearInterval(timer); timer = setInterval(load, 10000); clearInterval(tick); tick = setInterval(ticker, 1000);
   }
-  window.logout = () => { sessionStorage.removeItem('s'); clearInterval(timer); loginUI(); };
-  async function load() {
+  window.logout = () => { sessionStorage.removeItem('s'); clearInterval(timer); clearInterval(tick); nextAt = 0; loginUI(); };
+  async function load() { if (busy) return; busy = true; try { await loadInner(Date.now()); } finally { busy = false; } } // 겹쳐서 요청하지 않게
+  async function loadInner(t0) {
     const j = await call({ a: 'my', s: S() }).catch(() => ({ error: 'net' })); if (j.error === 'login') return logout(); if (j.error) return $('v').innerHTML = '<b style="color:#c00">불러오기 실패: ' + esc(j.error === 'net' ? '서버에 연결할 수 없습니다 (인터넷 확인)' : j.error) + '</b>';
     $('t').textContent = j.name + ' 출석 QR';
+    nextAt = j.roadAddress && j.ttl ? t0 + j.ttl : 0; if (!nextAt) $('qrt').textContent = ''; // 서버가 알려준 남은 시간 기준으로 카운트다운
     if (!j.roadAddress) { // 교육장 미등록: 매니저가 현장에서 직접 등록 (GPS 검증)
       $('v').innerHTML = '<b style="color:#c00">교육장이 아직 등록되지 않았습니다.<br>교육장에서 아래에 주소를 입력하고 저장하세요.</b>'; $('qr').innerHTML = ''; lastTok = '';
     } else $('v').innerHTML = '교육장: <b>' + esc(j.roadAddress) + '</b> (반경 ' + j.radius + 'm)';
