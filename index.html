@@ -26,12 +26,14 @@ const gps = (ok, fail) => window.gpsBridge
 if (P.get('c')) {
   html('<h2>출석 체크</h2><p id="bn"></p><input id="n" placeholder="이름"><button onclick="go()">출석하기</button><p id="m"></p>');
   call({ a: 'branch', c: P.get('c'), t: P.get('t') }).then(j => $('bn').textContent = j.name || j.error).catch(() => $('bn').textContent = '서버 연결 실패');
+  // 기기 식별자: 이 브라우저에 한 번 만들어 저장 (같은 기기로 여러 사람 이름 출석하는 대리출석 탐지용)
+  const dev = (() => { try { let d = localStorage.getItem('dv'); if (!d) { d = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()); localStorage.setItem('dv', d); } return d; } catch (e) { return ''; } })();
   window.go = () => {
     const n = $('n').value.trim(); if (!n) return $('m').textContent = '이름을 입력하세요';
     $('m').textContent = '위치 확인 중...';
     gps(async p => {
       $('m').textContent = '출석 처리 중...';
-      const j = await call({ a: 'checkin', b: P.get('c'), t: P.get('t'), name: n, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(() => ({ error: '서버 연결 실패' }));
+      const j = await call({ a: 'checkin', b: P.get('c'), t: P.get('t'), name: n, dev: dev, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(() => ({ error: '서버 연결 실패' }));
       $('m').textContent = j.msg || j.error;
     }, e => $('m').textContent = '위치 권한을 허용해주세요 (' + e + ')');
   };
@@ -68,7 +70,7 @@ else if (P.has('m')) {
   };
   let lastTok = '', timer;
   function manageUI() {
-    html('<h2 id="t"></h2><p id="v"></p><div id="qr" style="margin:10px 0"></div><hr><b>교육장 주소 등록/변경</b> <small>(교육장에서 이 기기의 GPS로 확인 후 저장됩니다)</small><input id="a"><b>허용 반경(m)</b><input id="r" type="number"><button onclick="saveV()">저장</button> <span id="s"></span>'
+    html('<h2 id="t"></h2><p id="v"></p><div id="qr" style="margin:10px 0"></div><hr><b>교육장 주소 등록/변경</b> <small>(교육장에서 이 기기의 GPS로 현재 위치를 확인한 뒤 저장됩니다)</small><br><button onclick="fillV()">📍 현재 위치로 주소 불러오기</button><input id="a" placeholder="불러온 주소가 여기에 표시됩니다 (필요하면 수정 가능)"><button onclick="saveV()">저장</button> <span id="s"></span>'
       + '<h3>오늘 출석 현황</h3><div id="cnt" style="font-size:22px;margin:6px 0"></div><div id="rows"></div><hr><p><a href="#" onclick="logout();return false">로그아웃</a></p>');
     lastTok = ''; load(); clearInterval(timer); timer = setInterval(load, 10000);
   }
@@ -81,14 +83,20 @@ else if (P.has('m')) {
     } else $('v').innerHTML = '교육장: <b>' + esc(j.roadAddress) + '</b> (반경 ' + j.radius + 'm)';
     const url = location.origin + location.pathname + '?c=' + encodeURIComponent(j.id) + '&t=' + j.token; // ID에 한글이 있으면 QR 라이브러리가 오류 -> 인코딩
     if (j.roadAddress && j.token !== lastTok) { lastTok = j.token; $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, width: 260, height: 260 }); }
-    if (!$('a').value) { $('a').value = j.address; $('r').value = j.radius; }
+    if (!$('a').value) $('a').value = j.address;
     const okN = new Set(j.rows.filter(x => x.final === 'O').map(x => x.name)).size, failN = j.rows.filter(x => x.final !== 'O').length; // 같은 이름 중복 출석은 1명으로
     $('cnt').innerHTML = '출석 <b>' + okN + '명</b>' + (failN ? ' <small style="color:#c00">(실패 시도 ' + failN + '건)</small>' : '');
     $('rows').innerHTML = '<table>' + j.rows.map(x => '<tr class="' + (x.final === 'O' ? 'ok' : 'no') + '"><td>' + esc(String(x.ts).slice(11)) + '</td><td>' + esc(x.name) + '</td><td>' + (x.final === 'O' ? '출석' : '실패') + '</td><td>' + esc(x.dist) + 'm</td></tr>').join('') + '</table>';
   }
+  window.fillV = () => { // 이 기기의 GPS -> 서버가 도로명주소로 변환 -> 입력칸에 채움 (저장 때 한 번 더 위치 검증)
+    $('s').textContent = '내 위치 확인 중...';
+    gps(async p => { $('s').textContent = '주소 확인 중...'; const j = await call({ a: 'venueprev', s: S(), lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
+      if (j.address) { $('a').value = j.address; $('s').textContent = '현재 위치: ' + j.address + ' (오차 약 ' + j.acc + 'm) — 맞으면 [저장]을 누르세요'; } else $('s').textContent = j.msg || j.error; },
+      e => $('s').textContent = '위치 권한을 허용해야 합니다 (' + e + ')');
+  };
   window.saveV = () => {
     $('s').textContent = '내 위치 확인 중...';
-    gps(async p => { $('s').textContent = '확인 중...'; const j = await call({ a: 'myvenue', s: S(), address: $('a').value, radius: $('r').value, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
+    gps(async p => { $('s').textContent = '확인 중...'; const j = await call({ a: 'myvenue', s: S(), address: $('a').value, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
       $('s').textContent = j.ok ? '저장됨' : (j.msg || j.error); lastTok = ''; load(); }, e => $('s').textContent = '위치 권한을 허용해야 주소를 바꿀 수 있습니다 (' + e + ')');
   };
   S() ? manageUI() : loginUI();
