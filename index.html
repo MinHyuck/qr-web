@@ -1,14 +1,66 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>출석 QR</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css">
 <style>
-body{font:16px 'Malgun Gothic',sans-serif;max-width:520px;margin:1.5em auto;padding:0 1em;color:#222}
-body.wide{max-width:1000px}
-input{width:100%;font-size:16px;padding:8px;box-sizing:border-box;margin:4px 0 10px}
-button{font-size:16px;padding:8px 16px;margin:4px 0}
-table{border-collapse:collapse}td,th{border:1px solid #bbb;padding:5px 8px}
-.ok{background:#eefbee}.no{background:#fdeeee}#m,#s,#cm{white-space:pre-line}
+:root{--bg:#f1f5f9;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#0ea5e9;--accent-d:#0284c7;--accent-bg:#e0f2fe;--ok:#15803d;--ok-bg:#dcfce7;--err:#b91c1c;--err-bg:#fee2e2;--shadow:0 1px 2px rgba(15,23,42,.05),0 8px 24px rgba(15,23,42,.06)}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1220;--card:#131c2e;--text:#e5edf7;--muted:#94a3b8;--line:#243049;--accent:#38bdf8;--accent-d:#7dd3fc;--accent-bg:#0c2a40;--ok:#4ade80;--ok-bg:#12301f;--err:#f87171;--err-bg:#3a1618;--shadow:none}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font:16px/1.55 Pretendard,'Malgun Gothic',system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+.shell{max-width:560px;margin:0 auto;padding:0 16px 40px}
+.shell.wide{max-width:1180px}
+.top{display:flex;align-items:center;gap:10px;padding:18px 2px 14px}
+.logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#38bdf8,#0284c7);color:#fff;display:grid;place-items:center;font-weight:800;font-size:16px}
+.top b{font-size:18px;letter-spacing:-.2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:var(--shadow);margin-bottom:14px}
+h1{font-size:22px;margin:0 0 4px;letter-spacing:-.3px;line-height:1.3}
+h2{font-size:17px;margin:0 0 10px}
+.sub{color:var(--muted);margin:0 0 16px;font-size:14px}
+.hint{color:var(--muted);font-size:13px;margin:-4px 0 12px}
+label.fl{display:block;margin:0 0 12px}
+label.fl>span{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.in{width:100%;font:inherit;font-size:16px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s}
+.in:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+.in.date{width:auto;padding:8px 12px;font-size:15px}
+.btn{display:block;width:100%;font:inherit;font-weight:700;font-size:16px;padding:12px 16px;border:0;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer;transition:background .15s,transform .05s}
+.btn:hover{background:var(--accent-d)}.btn:active{transform:translateY(1px)}.btn:disabled{opacity:.6;cursor:default}
+.btn.ghost{background:var(--accent-bg);color:var(--accent-d);margin-bottom:12px}
+.btn.ghost:hover{filter:brightness(.97)}
+.btn.sm{display:inline-block;width:auto;padding:8px 14px;font-size:14px;margin:0}
+a{color:var(--accent-d);text-decoration:none}a:hover{text-decoration:underline}
+.links{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-top:16px;font-size:14px}
+.msg{margin:14px 0 0;padding:10px 12px;border-radius:10px;font-size:14px;white-space:pre-line;background:var(--accent-bg);color:var(--accent-d)}
+.msg:empty{display:none}.msg.ok{background:var(--ok-bg);color:var(--ok)}.msg.err{background:var(--err-bg);color:var(--err)}
+.center{text-align:center}
+.big-ic{font-size:38px;line-height:1;margin-bottom:8px}
+.errtxt{color:var(--err);font-weight:600}
+.qrbox{display:grid;place-items:center;padding:16px;border:1px dashed var(--line);border-radius:14px;margin:14px 0 10px;background:#fff;min-height:120px}
+#qr img,#qr canvas{display:block}
+.qrt{font-size:13px;color:var(--muted);text-align:center}
+.bar{height:6px;border-radius:99px;background:var(--accent-bg);overflow:hidden;margin:8px 0 0}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width 1s linear}
+.stat{display:flex;align-items:baseline;gap:8px;margin:2px 0 14px;flex-wrap:wrap}
+.num{font-size:46px;font-weight:800;line-height:1;color:var(--accent-d)}
+.fail{font-size:12px;padding:3px 10px;border-radius:99px;background:var(--err-bg);color:var(--err);font-weight:600}
+.tblwrap{overflow:auto;max-height:64vh;border-radius:10px}
+table.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:9px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card);white-space:nowrap}
+.tbl td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl tr:last-child td{border-bottom:0}.tbl tr:hover td{background:var(--accent-bg)}
+.addr{max-width:280px;color:var(--muted)}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700;white-space:nowrap}
+.badge.ok{background:var(--ok-bg);color:var(--ok)}.badge.no{background:var(--err-bg);color:var(--err)}
+.empty{color:var(--muted);text-align:center;padding:28px 0;font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{font:inherit;font-size:14px;padding:7px 14px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;display:inline-flex;gap:7px;align-items:center}
+.chip b{color:var(--accent-d)}.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}.chip.on b{color:#fff}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}
+.foot{text-align:center;font-size:14px;margin-top:4px}
 </style></head><body>
-<div id="app"></div>
+<div class="shell" id="shell">
+  <header class="top"><div class="logo">출</div><b>출석 QR</b></header>
+  <main id="app"></main>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbxh0OyKcQuuKDMPtRfaKHj2bMvDmw6jkRLjE8jz2WGFuFfS9GY6f-B5ToQaQ79r_xw/exec';
@@ -16,7 +68,15 @@ const $ = id => document.getElementById(id), P = new URLSearchParams(location.se
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const call = o => fetch(API, { method: 'POST', body: JSON.stringify(o) }).then(r => r.json()); // text/plain 이라 CORS preflight 없음
 const html = h => $('app').innerHTML = h;
-const field = (id, ph, type) => '<input id="' + id + '" placeholder="' + ph + '"' + (type ? ' type="' + type + '"' : '') + '>';
+const card = (h, cls) => '<section class="card ' + (cls || '') + '">' + h + '</section>';
+const head = (title, sub) => '<h1>' + title + '</h1>' + (sub ? '<p class="sub">' + sub + '</p>' : '');
+const field = (id, label, type, hint) => '<label class="fl"><span>' + label + '</span><input class="in" id="' + id + '"' + (type ? ' type="' + type + '"' : '') + ' autocomplete="off">' + (hint ? '<small class="hint">' + hint + '</small>' : '') + '</label>';
+const say = (id, text, kind) => { const e = $(id); if (e) { e.textContent = text || ''; e.className = 'msg ' + (kind || ''); } }; // kind: ok | err | (info)
+const net = () => ({ error: '서버 연결 실패' });
+document.addEventListener('keydown', e => { // Enter 로 해당 카드의 기본 버튼 실행
+  if (e.key !== 'Enter' || !e.target.matches || !e.target.matches('input.in')) return;
+  const b = e.target.closest('section') && e.target.closest('section').querySelector('button.btn:not(.ghost)'); if (b) b.click();
+});
 // EXE(Electron)에는 구글 위치서비스 키가 없어서 navigator.geolocation 이 안 됨 -> EXE 가 윈도우 위치를 gpsBridge 로 제공
 const gps = (ok, fail) => window.gpsBridge
   ? window.gpsBridge.get().then(c => ok({ coords: c }), e => fail(String(e.message || e).replace(/^Error invoking remote method 'gps': Error: /, '')))
@@ -24,87 +84,93 @@ const gps = (ok, fail) => window.gpsBridge
 
 // ===== 휴대폰: 출석 =====
 if (P.get('c')) {
-  html('<h2>출석 체크</h2><p id="bn"></p><input id="n" placeholder="이름"><button onclick="go()">출석하기</button><p id="m"></p>');
-  call({ a: 'branch', c: P.get('c'), t: P.get('t') }).then(j => $('bn').textContent = j.name || j.error).catch(() => $('bn').textContent = '서버 연결 실패');
+  html(card('<div class="center"><div class="big-ic">📍</div></div><h1 class="center">출석 체크</h1><p class="sub center" id="bn">지점 확인 중...</p>'
+    + field('n', '이름') + '<button class="btn" id="go" onclick="go()">출석하기</button><p id="m" class="msg"></p>'));
+  call({ a: 'branch', c: P.get('c'), t: P.get('t') }).then(j => { $('bn').textContent = j.name || j.error; if (j.error) $('bn').className = 'sub center errtxt'; }).catch(() => $('bn').textContent = '서버 연결 실패');
   // 기기 식별자: 이 브라우저에 한 번 만들어 저장 (같은 기기로 여러 사람 이름 출석하는 대리출석 탐지용)
   const dev = (() => { try { let d = localStorage.getItem('dv'); if (!d) { d = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()); localStorage.setItem('dv', d); } return d; } catch (e) { return ''; } })();
   window.go = () => {
-    const n = $('n').value.trim(); if (!n) return $('m').textContent = '이름을 입력하세요';
-    $('m').textContent = '위치 확인 중...';
+    const n = $('n').value.trim(); if (!n) return say('m', '이름을 입력하세요', 'err');
+    $('go').disabled = true; say('m', '위치 확인 중...');
     gps(async p => {
-      $('m').textContent = '출석 처리 중...';
-      const j = await call({ a: 'checkin', b: P.get('c'), t: P.get('t'), name: n, dev: dev, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(() => ({ error: '서버 연결 실패' }));
-      $('m').textContent = j.msg || j.error;
-    }, e => $('m').textContent = '위치 권한을 허용해주세요 (' + e + ')');
+      say('m', '출석 처리 중...');
+      const j = await call({ a: 'checkin', b: P.get('c'), t: P.get('t'), name: n, dev: dev, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
+      say('m', j.msg || j.error, j.success ? 'ok' : 'err'); $('go').disabled = false;
+    }, e => { say('m', '위치 권한을 허용해주세요 (' + e + ')', 'err'); $('go').disabled = false; });
   };
 }
 
-// ===== 지점 담당자 (로그인 / 계정 만들기 / 아이디·비밀번호 찾기 / QR / 주소 / 오늘 현황) + 관리자(고객사) 로그인 =====
+// ===== 지점 담당자 (로그인 / 계정 만들기 / 아이디·비밀번호 찾기 / QR / 주소 / 오늘 현황) =====
 else if (P.has('m')) {
-  const S = () => sessionStorage.getItem('s'), AS = () => sessionStorage.getItem('as');
-  const net = () => ({ error: '서버 연결 실패' });
-  const back = '<a href="#" onclick="back();return false">← 로그인으로</a>';
+  const S = () => sessionStorage.getItem('s');
+  const back = '<div class="links"><a href="#" onclick="back();return false">← 로그인으로</a></div>';
   window.back = () => loginUI();
 
   function loginUI() {
-    html('<h2>지점 로그인</h2>' + field('i', 'ID') + field('p', '비밀번호', 'password') + '<button onclick="login()">로그인</button> <span id="m"></span>'
-      + '<p><a href="#" onclick="signupUI();return false">계정 만들기</a> · <a href="#" onclick="findIdUI();return false">아이디 찾기</a> · <a href="#" onclick="findPwUI();return false">비밀번호 찾기</a></p>');
-    window.login = async () => { $('m').textContent = '확인 중...'; const j = await call({ a: 'login', id: $('i').value, pw: $('p').value }).catch(net); if (j.session) { sessionStorage.setItem('s', j.session); manageUI(); } else $('m').textContent = j.error; };
+    html(card(head('지점 로그인', '지점 담당자 계정으로 로그인하세요.') + field('i', '아이디') + field('p', '비밀번호', 'password') + '<button class="btn" onclick="login()">로그인</button><p id="m" class="msg"></p>'
+      + '<div class="links"><a href="#" onclick="signupUI();return false">계정 만들기</a><a href="#" onclick="findIdUI();return false">아이디 찾기</a><a href="#" onclick="findPwUI();return false">비밀번호 찾기</a></div>'));
+    window.login = async () => { say('m', '확인 중...'); const j = await call({ a: 'login', id: $('i').value, pw: $('p').value }).catch(net); if (j.session) { sessionStorage.setItem('s', j.session); manageUI(); } else say('m', j.error, 'err'); };
   }
   window.signupUI = () => {
-    html('<h2>계정 만들기</h2><small>신청 후 관리자가 승인하면 로그인할 수 있습니다.</small>' + field('sn', '지점명') + field('sp', '담당자 이름') + field('se', '이메일 (아이디/비밀번호 찾기에 사용)')
-      + field('si', '로그인 ID (영문/숫자 3자 이상)') + field('s1', '비밀번호 (6자 이상)', 'password') + field('s2', '비밀번호 확인', 'password') + '<button onclick="signup()">신청</button> ' + back + '<p id="m"></p>');
+    html(card(head('계정 만들기', '신청 후 관리자가 승인하면 로그인할 수 있습니다.') + field('sn', '지점명') + field('sp', '담당자 이름') + field('se', '이메일', '', '아이디/비밀번호 찾기에 사용됩니다')
+      + field('si', '로그인 ID', '', '영문/숫자 3자 이상') + field('s1', '비밀번호', 'password', '6자 이상') + field('s2', '비밀번호 확인', 'password') + '<button class="btn" onclick="signup()">신청</button><p id="m" class="msg"></p>' + back));
     window.signup = async () => {
-      if ($('s1').value !== $('s2').value) return $('m').textContent = '비밀번호 확인이 일치하지 않습니다';
-      $('m').textContent = '신청 중...';
-      const j = await call({ a: 'signup', name: $('sn').value, person: $('sp').value, email: $('se').value, id: $('si').value, pw: $('s1').value }).catch(net); $('m').textContent = j.msg || j.error;
+      if ($('s1').value !== $('s2').value) return say('m', '비밀번호 확인이 일치하지 않습니다', 'err');
+      say('m', '신청 중...');
+      const j = await call({ a: 'signup', name: $('sn').value, person: $('sp').value, email: $('se').value, id: $('si').value, pw: $('s1').value }).catch(net); say('m', j.msg || j.error, j.error ? 'err' : 'ok');
     };
   };
   window.findIdUI = () => {
-    html('<h2>아이디 찾기</h2><small>가입할 때 입력한 이메일로 아이디를 보내드립니다.</small>' + field('fe', '이메일') + '<button onclick="findId()">아이디 메일로 받기</button> ' + back + '<p id="m"></p>');
-    window.findId = async () => { $('m').textContent = '처리 중...'; const j = await call({ a: 'findid', email: $('fe').value }).catch(net); $('m').textContent = j.msg || j.error; };
+    html(card(head('아이디 찾기', '가입할 때 입력한 이메일로 아이디를 보내드립니다.') + field('fe', '이메일') + '<button class="btn" onclick="findId()">아이디 메일로 받기</button><p id="m" class="msg"></p>' + back));
+    window.findId = async () => { say('m', '처리 중...'); const j = await call({ a: 'findid', email: $('fe').value }).catch(net); say('m', j.msg || j.error, j.error ? 'err' : 'ok'); };
   };
   window.findPwUI = () => {
-    html('<h2>비밀번호 찾기</h2><small>ID와 가입 이메일이 일치하면 임시 비밀번호를 메일로 보내드립니다.</small>' + field('fi', 'ID') + field('fe', '이메일') + '<button onclick="findPw()">임시 비밀번호 받기</button> ' + back + '<p id="m"></p>');
-    window.findPw = async () => { $('m').textContent = '처리 중...'; const j = await call({ a: 'findpw', id: $('fi').value, email: $('fe').value }).catch(net); $('m').textContent = j.msg || j.error; };
+    html(card(head('비밀번호 찾기', '아이디와 가입 이메일이 일치하면 임시 비밀번호를 메일로 보내드립니다.') + field('fi', '아이디') + field('fe', '이메일') + '<button class="btn" onclick="findPw()">임시 비밀번호 받기</button><p id="m" class="msg"></p>' + back));
+    window.findPw = async () => { say('m', '처리 중...'); const j = await call({ a: 'findpw', id: $('fi').value, email: $('fe').value }).catch(net); say('m', j.msg || j.error, j.error ? 'err' : 'ok'); };
   };
+
   let lastTok = '', timer, tick, nextAt = 0, busy = false;
   const ticker = () => { // QR 은 60초마다 바뀜 — 남은 시간 표시, 0초가 되면 새 QR 을 바로 받아옴
-    if (!nextAt) return; const s = Math.max(0, Math.ceil((nextAt - Date.now()) / 1000));
-    $('qrt').textContent = '🔄 QR은 60초마다 자동으로 바뀝니다 · 다음 갱신까지 ' + s + '초';
+    if (!nextAt) return; const ms = Math.max(0, nextAt - Date.now()), s = Math.ceil(ms / 1000);
+    $('qrt').textContent = '🔄 QR은 60초마다 자동으로 바뀝니다 · 다음 갱신까지 ' + s + '초'; $('bar').style.width = Math.min(100, ms / 600) + '%';
     if (s === 0) { nextAt = Date.now() + 5000; load(); } // 실패해도 5초 뒤 재시도
   };
   function manageUI() {
-    html('<h2 id="t"></h2><p id="v"></p><div id="qr" style="margin:10px 0"></div><div id="qrt" style="color:#666;font-size:14px"></div><hr><b>교육장 주소 등록/변경</b> <small>(교육장에서 이 기기의 GPS로 현재 위치를 확인한 뒤 저장됩니다)</small><br><button onclick="fillV()">📍 현재 위치로 주소 불러오기</button><input id="a" placeholder="불러온 주소가 여기에 표시됩니다 (필요하면 수정 가능)"><button onclick="saveV()">저장</button> <span id="s"></span>'
-      + '<h3>오늘 출석 현황</h3><div id="cnt" style="font-size:22px;margin:6px 0"></div><div id="rows"></div><hr><p><a href="#" onclick="logout();return false">로그아웃</a></p>');
+    html(card('<h1 id="t">출석 QR</h1><p class="sub" id="v">불러오는 중...</p><div class="qrbox"><div id="qr"></div></div><div class="qrt" id="qrt"></div><div class="bar"><i id="bar"></i></div>')
+      + card('<h2>오늘 출석 현황</h2><div class="stat" id="cnt"></div><div class="tblwrap" id="rows"></div>')
+      + card('<h2>교육장 주소 등록/변경</h2><p class="hint">교육장에서 이 기기의 GPS로 현재 위치를 확인한 뒤 저장됩니다.</p><button class="btn ghost" onclick="fillV()">📍 현재 위치로 주소 불러오기</button>'
+        + '<input class="in" id="a" placeholder="불러온 주소가 여기에 표시됩니다 (필요하면 수정 가능)" style="margin-bottom:12px"><button class="btn" onclick="saveV()">저장</button><p id="s" class="msg"></p>')
+      + '<p class="foot"><a href="#" onclick="logout();return false">로그아웃</a></p>');
     lastTok = ''; nextAt = 0; load(); clearInterval(timer); timer = setInterval(load, 10000); clearInterval(tick); tick = setInterval(ticker, 1000);
   }
   window.logout = () => { sessionStorage.removeItem('s'); clearInterval(timer); clearInterval(tick); nextAt = 0; loginUI(); };
   async function load() { if (busy) return; busy = true; try { await loadInner(Date.now()); } finally { busy = false; } } // 겹쳐서 요청하지 않게
   async function loadInner(t0) {
-    const j = await call({ a: 'my', s: S() }).catch(() => ({ error: 'net' })); if (j.error === 'login') return logout(); if (j.error) return $('v').innerHTML = '<b style="color:#c00">불러오기 실패: ' + esc(j.error === 'net' ? '서버에 연결할 수 없습니다 (인터넷 확인)' : j.error) + '</b>';
+    const j = await call({ a: 'my', s: S() }).catch(() => ({ error: 'net' })); if (j.error === 'login') return logout();
+    if (j.error) return $('v').innerHTML = '<span class="errtxt">불러오기 실패: ' + esc(j.error === 'net' ? '서버에 연결할 수 없습니다 (인터넷 확인)' : j.error) + '</span>';
     $('t').textContent = j.name + ' 출석 QR';
-    nextAt = j.roadAddress && j.ttl ? t0 + j.ttl : 0; if (!nextAt) $('qrt').textContent = ''; // 서버가 알려준 남은 시간 기준으로 카운트다운
+    nextAt = j.roadAddress && j.ttl ? t0 + j.ttl : 0; if (!nextAt) { $('qrt').textContent = ''; $('bar').style.width = '0'; } // 서버가 알려준 남은 시간 기준으로 카운트다운
     if (!j.roadAddress) { // 교육장 미등록: 매니저가 현장에서 직접 등록 (GPS 검증)
-      $('v').innerHTML = '<b style="color:#c00">교육장이 아직 등록되지 않았습니다.<br>교육장에서 아래에 주소를 입력하고 저장하세요.</b>'; $('qr').innerHTML = ''; lastTok = '';
-    } else $('v').innerHTML = '교육장: <b>' + esc(j.roadAddress) + '</b> (반경 ' + j.radius + 'm)';
+      $('v').innerHTML = '<span class="errtxt">교육장이 아직 등록되지 않았습니다.</span><br>아래에서 교육장 주소를 등록하면 QR이 표시됩니다.'; $('qr').innerHTML = ''; lastTok = '';
+    } else $('v').innerHTML = '📍 <b>' + esc(j.roadAddress) + '</b> · 허용 반경 ' + j.radius + 'm';
     const url = location.origin + location.pathname + '?c=' + encodeURIComponent(j.id) + '&t=' + j.token; // ID에 한글이 있으면 QR 라이브러리가 오류 -> 인코딩
     if (j.roadAddress && j.token !== lastTok) { lastTok = j.token; $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, width: 260, height: 260 }); }
     if (!$('a').value) $('a').value = j.address;
     const okN = new Set(j.rows.filter(x => x.final === 'O').map(x => x.name)).size, failN = j.rows.filter(x => x.final !== 'O').length; // 같은 이름 중복 출석은 1명으로
-    $('cnt').innerHTML = '출석 <b>' + okN + '명</b>' + (failN ? ' <small style="color:#c00">(실패 시도 ' + failN + '건)</small>' : '');
-    $('rows').innerHTML = '<table>' + j.rows.map(x => '<tr class="' + (x.final === 'O' ? 'ok' : 'no') + '"><td>' + esc(String(x.ts).slice(11)) + '</td><td>' + esc(x.name) + '</td><td>' + (x.final === 'O' ? '출석' : '실패') + '</td><td>' + esc(x.dist) + 'm</td></tr>').join('') + '</table>';
+    $('cnt').innerHTML = '<span class="num">' + okN + '</span><span>명 출석</span>' + (failN ? '<span class="fail">실패 시도 ' + failN + '건</span>' : '');
+    $('rows').innerHTML = j.rows.length ? '<table class="tbl"><tr><th>시각</th><th>이름</th><th>결과</th><th>거리</th></tr>' + j.rows.map(x => '<tr><td>' + esc(String(x.ts).slice(11)) + '</td><td>' + esc(x.name) + '</td><td><span class="badge ' + (x.final === 'O' ? 'ok">출석' : 'no">실패') + '</span></td><td>' + esc(x.dist) + 'm</td></tr>').join('') + '</table>'
+      : '<div class="empty">아직 출석한 사람이 없습니다.</div>';
   }
   window.fillV = () => { // 이 기기의 GPS -> 서버가 도로명주소로 변환 -> 입력칸에 채움 (저장 때 한 번 더 위치 검증)
-    $('s').textContent = '내 위치 확인 중...';
-    gps(async p => { $('s').textContent = '주소 확인 중...'; const j = await call({ a: 'venueprev', s: S(), lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
-      if (j.address) { $('a').value = j.address; $('s').textContent = '현재 위치: ' + j.address + ' (오차 약 ' + j.acc + 'm) — 맞으면 [저장]을 누르세요'; } else $('s').textContent = j.msg || j.error; },
-      e => $('s').textContent = '위치 권한을 허용해야 합니다 (' + e + ')');
+    say('s', '내 위치 확인 중...');
+    gps(async p => { say('s', '주소 확인 중...'); const j = await call({ a: 'venueprev', s: S(), lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
+      if (j.address) { $('a').value = j.address; say('s', '현재 위치: ' + j.address + ' (오차 약 ' + j.acc + 'm)\n맞으면 [저장]을 누르세요', 'ok'); } else say('s', j.msg || j.error, 'err'); },
+      e => say('s', '위치 권한을 허용해야 합니다 (' + e + ')', 'err'));
   };
   window.saveV = () => {
-    $('s').textContent = '내 위치 확인 중...';
-    gps(async p => { $('s').textContent = '확인 중...'; const j = await call({ a: 'myvenue', s: S(), address: $('a').value, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
-      $('s').textContent = j.ok ? '저장됨' : (j.msg || j.error); lastTok = ''; load(); }, e => $('s').textContent = '위치 권한을 허용해야 주소를 바꿀 수 있습니다 (' + e + ')');
+    say('s', '내 위치 확인 중...');
+    gps(async p => { say('s', '확인 중...'); const j = await call({ a: 'myvenue', s: S(), address: $('a').value, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
+      say('s', j.ok ? '저장되었습니다' : (j.msg || j.error), j.ok ? 'ok' : 'err'); lastTok = ''; load(); }, e => say('s', '위치 권한을 허용해야 주소를 바꿀 수 있습니다 (' + e + ')', 'err'));
   };
   S() ? manageUI() : loginUI();
 }
@@ -112,46 +178,56 @@ else if (P.has('m')) {
 // ===== 고객사 관리자: 접속하면 바로 로그인 -> 출석 현황 (EXE 조회용은 ?admin 으로 열림) =====
 else if (P.has('admin')) { const t = sessionStorage.getItem('as'); t ? viewUI({ s: t }) : adminLoginUI(); }
 
-// ===== 고객사 조회 (관리자 계정 로그인 또는 조회 링크 키) =====
+// ===== 고객사 조회 (본사용 조회 링크 키) =====
 else if (P.get('v')) viewUI({ k: P.get('v') });
-else html('<h2>출석 QR</h2><p>QR을 스캔해서 접속해주세요.</p>');
+else html(card('<div class="center"><div class="big-ic">📷</div></div><h1 class="center">출석 QR</h1><p class="sub center">교육장의 QR을 스캔해서 접속해주세요.</p>'));
 
 function adminLoginUI() {
-  html('<h2>출석 현황 조회</h2><small>관리자 계정으로 로그인하세요.</small>' + field('i', 'ID') + field('p', '비밀번호', 'password') + '<button onclick="alogin()">로그인</button> <span id="m"></span><p><a href="#" onclick="adminSignupUI();return false">계정 만들기</a></p>');
+  html(card(head('출석 현황 조회', '관리자 계정으로 로그인하세요.') + field('i', '아이디') + field('p', '비밀번호', 'password') + '<button class="btn" onclick="alogin()">로그인</button><p id="m" class="msg"></p>'
+    + '<div class="links"><a href="#" onclick="adminSignupUI();return false">계정 만들기</a></div>'));
   window.alogin = async () => {
-    $('m').textContent = '확인 중...'; const j = await call({ a: 'alogin', id: $('i').value, pw: $('p').value }).catch(() => ({ error: '서버 연결 실패' }));
-    if (j.session) { sessionStorage.setItem('as', j.session); viewUI({ s: j.session }); } else $('m').textContent = j.error;
+    say('m', '확인 중...'); const j = await call({ a: 'alogin', id: $('i').value, pw: $('p').value }).catch(net);
+    if (j.session) { sessionStorage.setItem('as', j.session); viewUI({ s: j.session }); } else say('m', j.error, 'err');
   };
 }
 
 function adminSignupUI() { // 고객사 조회계정 신청 (본사 승인 후 로그인 가능)
-  html('<h2>조회 계정 만들기</h2><small>신청 후 관리자가 승인하면 로그인할 수 있습니다.</small>' + field('so', '소속 / 담당자 이름') + field('se', '이메일') + field('si', '로그인 ID (영문/숫자 3자 이상)')
-    + field('s1', '비밀번호 (6자 이상)', 'password') + field('s2', '비밀번호 확인', 'password') + '<button onclick="asignup()">신청</button> <a href="#" onclick="adminLoginUI();return false">← 로그인으로</a><p id="m" style="white-space:pre-line"></p>');
+  html(card(head('조회 계정 만들기', '신청 후 관리자가 승인하면 로그인할 수 있습니다.') + field('so', '소속 / 담당자 이름') + field('se', '이메일') + field('si', '로그인 ID', '', '영문/숫자 3자 이상')
+    + field('s1', '비밀번호', 'password', '6자 이상') + field('s2', '비밀번호 확인', 'password') + '<button class="btn" onclick="asignup()">신청</button><p id="m" class="msg"></p>'
+    + '<div class="links"><a href="#" onclick="adminLoginUI();return false">← 로그인으로</a></div>'));
   window.asignup = async () => {
-    if ($('s1').value !== $('s2').value) return $('m').textContent = '비밀번호 확인이 일치하지 않습니다';
-    $('m').textContent = '신청 중...';
-    const j = await call({ a: 'asignup', org: $('so').value, email: $('se').value, id: $('si').value, pw: $('s1').value }).catch(() => ({ error: '서버 연결 실패' })); $('m').textContent = j.msg || j.error;
+    if ($('s1').value !== $('s2').value) return say('m', '비밀번호 확인이 일치하지 않습니다', 'err');
+    say('m', '신청 중...');
+    const j = await call({ a: 'asignup', org: $('so').value, email: $('se').value, id: $('si').value, pw: $('s1').value }).catch(net); say('m', j.msg || j.error, j.error ? 'err' : 'ok');
   };
 }
 
 function viewUI(auth) {
-  document.body.className = 'wide';
+  $('shell').classList.add('wide');
   const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-  let rows = [], bid = '';
-  html('<h2 id="h"></h2><p id="sum"></p><p>날짜 <input id="d" type="date" style="width:auto;margin:0" value="' + today + '" onchange="vload()"> <button onclick="csv()">엑셀(CSV) 다운로드</button> <small style="color:#666">· 10초마다 자동 갱신</small>'
-    + (auth.s ? ' · <a href="#" onclick="adminOut();return false">로그아웃</a>' : '') + '</p><div id="tb"></div>');
+  let rows = [], branches = [], bid = '';
+  html(card('<div class="row between"><div><h1 id="h">출석 현황</h1><p class="sub" id="meta" style="margin:0">불러오는 중...</p></div>'
+      + '<div class="row"><input class="in date" id="d" type="date" value="' + today + '" onchange="vload()"><button class="btn ghost sm" onclick="csv()">⬇ 엑셀(CSV)</button>'
+      + (auth.s ? '<button class="btn ghost sm" onclick="adminOut()">로그아웃</button>' : '') + '</div></div><div class="chips" id="sum"></div>')
+    + card('<div class="tblwrap" id="tb"></div>'));
   window.adminOut = () => { sessionStorage.removeItem('as'); location.href = location.pathname + '?admin'; };
   window.vload = async () => {
-    const j = await call({ a: 'view', ...auth, d: $('d').value }).catch(() => ({ error: '서버 연결 실패' }));
-    if (j.error === 'login') return window.adminOut(); if (j.error) return $('h').textContent = j.error;
-    rows = j.rows; const ok = n => new Set(rows.filter(r => r.bid === n && r.final === 'O').map(r => r.name)).size;
-    $('h').textContent = j.day + ' 출석 현황';
-    $('sum').innerHTML = j.branches.map(b => '<a href="#" onclick="sb(\'' + esc(b.id) + '\');return false">' + esc(b.name) + ' <b>' + ok(b.id) + '명</b></a>').join(' · ') + ' · <a href="#" onclick="sb(\'\');return false">전체</a>';
+    const j = await call({ a: 'view', ...auth, d: $('d').value }).catch(net);
+    if (j.error === 'login') return window.adminOut(); if (j.error) return $('meta').innerHTML = '<span class="errtxt">' + esc(j.error) + '</span>';
+    rows = j.rows; branches = j.branches;
+    $('h').textContent = j.day + ' 출석 현황'; $('meta').textContent = '10초마다 자동 갱신 · 마지막 갱신 ' + new Date().toLocaleTimeString('ko-KR');
     draw();
   };
   window.sb = id => { bid = id; draw(); };
-  window.draw = () => { $('tb').innerHTML = '<table><tr>' + ['시각', '지점', '이름', '결과', '거리(m)', '등록 교육장', '확인된 주소'].map(h => '<th>' + h + '</th>').join('') + '</tr>' +
-    rows.filter(r => !bid || r.bid === bid).map(r => '<tr class="' + (r.final === 'O' ? 'ok' : 'no') + '"><td>' + esc(String(r.ts).slice(11)) + '</td><td>' + esc(r.branch) + '</td><td>' + esc(r.name) + '</td><td>' + (r.final === 'O' ? '출석' : '실패') + '</td><td>' + esc(r.dist) + '</td><td>' + esc(r.venue) + '</td><td>' + esc(r.gps) + '</td></tr>').join('') + '</table>'; };
+  window.draw = () => {
+    const cnt = b => new Set(rows.filter(r => r.bid === b && r.final === 'O').map(r => r.name)).size, total = branches.reduce((s, b) => s + cnt(b.id), 0);
+    $('sum').innerHTML = '<button class="chip ' + (bid ? '' : 'on') + '" onclick="sb(\'\')">전체 <b>' + total + '명</b></button>'
+      + branches.map(b => '<button class="chip ' + (bid === b.id ? 'on' : '') + '" onclick="sb(\'' + esc(b.id) + '\')">' + esc(b.name) + ' <b>' + cnt(b.id) + '명</b></button>').join('');
+    const list = rows.filter(r => !bid || r.bid === bid);
+    $('tb').innerHTML = list.length ? '<table class="tbl"><tr>' + ['시각', '지점', '이름', '결과', '거리(m)', '등록 교육장', '확인된 주소'].map(h => '<th>' + h + '</th>').join('') + '</tr>'
+      + list.map(r => '<tr><td>' + esc(String(r.ts).slice(11)) + '</td><td>' + esc(r.branch) + '</td><td>' + esc(r.name) + '</td><td><span class="badge ' + (r.final === 'O' ? 'ok">출석' : 'no">실패') + '</span></td><td>' + esc(r.dist) + '</td><td class="addr">' + esc(r.venue) + '</td><td class="addr">' + esc(r.gps) + '</td></tr>').join('') + '</table>'
+      : '<div class="empty">해당 날짜의 출석 기록이 없습니다.</div>';
+  };
   window.csv = () => { const q = s => '"' + String(s ?? '').replace(/"/g, '""') + '"';
     const t = '﻿일시,지점,이름,결과,거리(m),등록 교육장,확인된 주소\r\n' + rows.map(r => [r.ts, r.branch, r.name, r.final === 'O' ? '출석' : '실패', r.dist, r.venue, r.gps].map(q).join(',')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([t], { type: 'text/csv;charset=utf-8' })); a.download = 'attendance_' + $('d').value + '.csv'; a.click(); };
