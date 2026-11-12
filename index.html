@@ -164,7 +164,8 @@ else if (P.has('m')) {
   window.fillV = () => { // 이 기기의 GPS -> 서버가 도로명주소로 변환 -> 입력칸에 채움 (저장 때 한 번 더 위치 검증)
     say('s', '내 위치 확인 중...');
     gps(async p => { say('s', '주소 확인 중...'); const j = await call({ a: 'venueprev', s: S(), lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
-      if (j.address) { $('a').value = j.address; say('s', '현재 위치: ' + j.address + ' (오차 약 ' + j.acc + 'm)\n맞으면 [저장]을 누르세요', 'ok'); } else say('s', j.msg || j.error, 'err'); },
+      const bad = p.coords.accuracy > 100, tip = '\n※ PC 위치는 Wi-Fi 기반이라 부정확할 수 있습니다. 실제 교육장 도로명주소를 아래 칸에 직접 입력하세요.';
+      if (j.address) { $('a').value = j.address; say('s', '현재 위치: ' + j.address + ' (오차 약 ' + j.acc + 'm)\n' + (bad ? '⚠ 오차가 큽니다. 주소가 맞는지 확인하고 틀리면 직접 입력하세요.' : '맞으면 [저장]을 누르세요'), bad ? '' : 'ok'); } else say('s', (j.msg || j.error) + tip, 'err'); },
       e => say('s', '위치 권한을 허용해야 합니다 (' + e + ')', 'err'));
   };
   window.saveV = () => {
