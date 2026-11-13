@@ -130,9 +130,9 @@ else if (P.has('m')) {
   };
 
   let lastTok = '', timer, tick, nextAt = 0, busy = false;
-  const ticker = () => { // QR 은 60초마다 바뀜 — 남은 시간 표시, 0초가 되면 새 QR 을 바로 받아옴
+  const ticker = () => { // QR 은 매일 자정에 바뀜 — 남은 시간 표시, 0초가 되면 새 QR 을 바로 받아옴
     if (!nextAt) return; const ms = Math.max(0, nextAt - Date.now()), s = Math.ceil(ms / 1000);
-    $('qrt').textContent = '🔄 QR은 60초마다 자동으로 바뀝니다 · 다음 갱신까지 ' + s + '초'; $('bar').style.width = Math.min(100, ms / 600) + '%';
+    $('qrt').textContent = '🔄 QR은 매일 자정에 바뀝니다 · 다음 갱신까지 ' + Math.floor(s / 3600) + '시간 ' + Math.floor(s % 3600 / 60) + '분'; $('bar').style.width = Math.min(100, ms / 864000) + '%';
     if (s === 0) { nextAt = Date.now() + 5000; load(); } // 실패해도 5초 뒤 재시도
   };
   function manageUI() {
