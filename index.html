@@ -62,6 +62,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
   <main id="app"></main>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://developers.kakao.com/sdk/js/kakao.min.js"></script>
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbxh0OyKcQuuKDMPtRfaKHj2bMvDmw6jkRLjE8jz2WGFuFfS9GY6f-B5ToQaQ79r_xw/exec';
 const $ = id => document.getElementById(id), P = new URLSearchParams(location.search);
@@ -85,16 +86,25 @@ const gps = (ok, fail) => window.gpsBridge
 // ===== 휴대폰: 출석 =====
 if (P.get('c')) {
   html(card('<div class="center"><div class="big-ic">📍</div></div><h1 class="center">출석 체크</h1><p class="sub center" id="bn">지점 확인 중...</p>'
+    + '<button class="btn ghost" id="kl" style="background:#fee500;color:#191919;border-color:#fee500" onclick="kakao()">💬 카카오 로그인 (본인 확인)</button>'
     + field('n', '이름') + '<button class="btn" id="go" onclick="go()">출석하기</button><p id="m" class="msg"></p>'));
   call({ a: 'branch', c: P.get('c'), t: P.get('t') }).then(j => { $('bn').textContent = j.name || j.error; if (j.error) $('bn').className = 'sub center errtxt'; }).catch(() => $('bn').textContent = '서버 연결 실패');
   // 기기 식별자: 이 브라우저에 한 번 만들어 저장 (같은 기기로 여러 사람 이름 출석하는 대리출석 탐지용)
   const dev = (() => { try { let d = localStorage.getItem('dv'); if (!d) { d = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()); localStorage.setItem('dv', d); } return d; } catch (e) { return ''; } })();
+  // 본인 확인: 카카오 로그인 (이름·연락처는 받지 않고, 서버가 계정 고유번호의 해시만 저장)
+  let kt = '';
+  try { Kakao.init('29a7c54aefdd0944e23eb83ccf09c5cb'); } catch (e) {}
+  window.kakao = () => {
+    if (!window.Kakao) return say('m', '카카오 로그인을 불러오지 못했습니다. 새로고침 해주세요', 'err');
+    Kakao.Auth.login({ success: a => { kt = a.access_token; $('kl').textContent = '✅ 카카오 로그인 완료'; $('kl').disabled = true; say('m', ''); }, fail: () => say('m', '카카오 로그인에 실패했습니다. 다시 시도해주세요', 'err') });
+  };
   window.go = () => {
     const n = $('n').value.trim(); if (!n) return say('m', '이름을 입력하세요', 'err');
+    if (!kt) return say('m', '먼저 카카오 로그인을 해주세요', 'err');
     $('go').disabled = true; say('m', '위치 확인 중...');
     gps(async p => {
       say('m', '출석 처리 중...');
-      const j = await call({ a: 'checkin', b: P.get('c'), t: P.get('t'), name: n, dev: dev, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
+      const j = await call({ a: 'checkin', b: P.get('c'), t: P.get('t'), name: n, dev: dev, kt: kt, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
       say('m', j.msg || j.error, j.success ? 'ok' : 'err'); $('go').disabled = false;
     }, e => { say('m', '위치 권한을 허용해주세요 (' + e + ')', 'err'); $('go').disabled = false; });
   };
@@ -158,7 +168,7 @@ else if (P.has('m')) {
     if (!$('a').value) $('a').value = j.address;
     const okN = new Set(j.rows.filter(x => x.final === 'O').map(x => x.name)).size, failN = j.rows.filter(x => x.final !== 'O').length; // 같은 이름 중복 출석은 1명으로
     $('cnt').innerHTML = '<span class="num">' + okN + '</span><span>명 출석</span>' + (failN ? '<span class="fail">실패 시도 ' + failN + '건</span>' : '');
-    $('rows').innerHTML = j.rows.length ? '<table class="tbl"><tr><th>시각</th><th>이름</th><th>결과</th><th>거리</th></tr>' + j.rows.map(x => '<tr><td>' + esc(String(x.ts).slice(11)) + '</td><td>' + esc(x.name) + '</td><td><span class="badge ' + (x.final === 'O' ? 'ok">출석' : 'no">실패') + '</span></td><td>' + esc(x.dist) + 'm</td></tr>').join('') + '</table>'
+    $('rows').innerHTML = j.rows.length ? '<table class="tbl"><tr><th>시각</th><th>이름</th><th>결과</th><th>거리</th></tr>' + j.rows.map(x => '<tr><td>' + esc(String(x.ts).slice(11)) + '</td><td>' + esc(x.name) + '</td><td><span class="badge ' + (x.final === 'O' ? 'ok">출석' : 'no">실패') + '</span>' + (x.chk ? ' <span title="이전과 다른 카카오계정/이름 조합">⚠확인필요</span>' : '') + '</td><td>' + esc(x.dist) + 'm</td></tr>').join('') + '</table>'
       : '<div class="empty">아직 출석한 사람이 없습니다.</div>';
   }
   window.fillV = () => { // 이 기기의 GPS -> 서버가 도로명주소로 변환 -> 입력칸에 채움 (저장 때 한 번 더 위치 검증)
@@ -226,7 +236,7 @@ function viewUI(auth) {
       + branches.map(b => '<button class="chip ' + (bid === b.id ? 'on' : '') + '" onclick="sb(\'' + esc(b.id) + '\')">' + esc(b.name) + ' <b>' + cnt(b.id) + '명</b></button>').join('');
     const list = rows.filter(r => !bid || r.bid === bid);
     $('tb').innerHTML = list.length ? '<table class="tbl"><tr>' + ['시각', '지점', '이름', '결과', '거리(m)', '등록 교육장', '확인된 주소'].map(h => '<th>' + h + '</th>').join('') + '</tr>'
-      + list.map(r => '<tr><td>' + esc(String(r.ts).slice(11)) + '</td><td>' + esc(r.branch) + '</td><td>' + esc(r.name) + '</td><td><span class="badge ' + (r.final === 'O' ? 'ok">출석' : 'no">실패') + '</span></td><td>' + esc(r.dist) + '</td><td class="addr">' + esc(r.venue) + '</td><td class="addr">' + esc(r.gps) + '</td></tr>').join('') + '</table>'
+      + list.map(r => '<tr><td>' + esc(String(r.ts).slice(11)) + '</td><td>' + esc(r.branch) + '</td><td>' + esc(r.name) + (r.chk ? ' <span title="이전과 다른 카카오계정/이름 조합">⚠</span>' : '') + '</td><td><span class="badge ' + (r.final === 'O' ? 'ok">출석' : 'no">실패') + '</span></td><td>' + esc(r.dist) + '</td><td class="addr">' + esc(r.venue) + '</td><td class="addr">' + esc(r.gps) + '</td></tr>').join('') + '</table>'
       : '<div class="empty">해당 날짜의 출석 기록이 없습니다.</div>';
   };
   window.csv = () => { const q = s => '"' + String(s ?? '').replace(/"/g, '""') + '"';
