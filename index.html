@@ -62,7 +62,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
   <main id="app"></main>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://developers.kakao.com/sdk/js/kakao.min.js"></script>
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbxh0OyKcQuuKDMPtRfaKHj2bMvDmw6jkRLjE8jz2WGFuFfS9GY6f-B5ToQaQ79r_xw/exec';
 const $ = id => document.getElementById(id), P = new URLSearchParams(location.search);
@@ -86,25 +85,36 @@ const gps = (ok, fail) => window.gpsBridge
 // ===== 휴대폰: 출석 =====
 if (P.get('c')) {
   html(card('<div class="center"><div class="big-ic">📍</div></div><h1 class="center">출석 체크</h1><p class="sub center" id="bn">지점 확인 중...</p>'
-    + '<button class="btn ghost" id="kl" style="background:#fee500;color:#191919;border-color:#fee500" onclick="kakao()">💬 카카오 로그인 (본인 확인)</button>'
+    + field('ph', '휴대폰 번호', 'tel', '본인 확인용 — 번호는 저장하지 않고 암호화된 값만 기록됩니다')
+    + '<button class="btn ghost" id="sb" onclick="smsSend()">인증번호 받기</button>'
+    + '<div id="vbox" style="display:none">' + field('cd', '인증번호 6자리', 'tel') + '<button class="btn ghost" id="vb" onclick="smsVerify()">인증 확인</button></div>'
     + field('n', '이름') + '<button class="btn" id="go" onclick="go()">출석하기</button><p id="m" class="msg"></p>'));
   call({ a: 'branch', c: P.get('c'), t: P.get('t') }).then(j => { $('bn').textContent = j.name || j.error; if (j.error) $('bn').className = 'sub center errtxt'; }).catch(() => $('bn').textContent = '서버 연결 실패');
   // 기기 식별자: 이 브라우저에 한 번 만들어 저장 (같은 기기로 여러 사람 이름 출석하는 대리출석 탐지용)
   const dev = (() => { try { let d = localStorage.getItem('dv'); if (!d) { d = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()); localStorage.setItem('dv', d); } return d; } catch (e) { return ''; } })();
-  // 본인 확인: 카카오 로그인 (이름·연락처는 받지 않고, 서버가 계정 고유번호의 해시만 저장)
-  let kt = '';
-  try { Kakao.init('29a7c54aefdd0944e23eb83ccf09c5cb'); } catch (e) {}
-  window.kakao = () => {
-    if (!window.Kakao) return say('m', '카카오 로그인을 불러오지 못했습니다. 새로고침 해주세요', 'err');
-    Kakao.Auth.login({ success: a => { kt = a.access_token; $('kl').textContent = '✅ 카카오 로그인 완료'; $('kl').disabled = true; say('m', ''); }, fail: () => say('m', '카카오 로그인에 실패했습니다. 다시 시도해주세요', 'err') });
+  // 본인 확인: 휴대폰 문자 인증 (번호는 저장 안 함, 서버가 해시만 기록). 통과하면 서명 토큰(pt)을 받아 출석 요청에 함께 보냄
+  let pt = '';
+  const ph = () => $('ph').value.replace(/\D/g, '');
+  window.smsSend = async () => {
+    if (!/^01[016789]\d{7,8}$/.test(ph())) return say('m', '휴대폰 번호를 정확히 입력하세요', 'err');
+    $('sb').disabled = true; say('m', '문자 발송 중...');
+    const j = await call({ a: 'smssend', b: P.get('c'), t: P.get('t'), phone: ph(), dev: dev }).catch(net);
+    say('m', j.msg || j.error, j.ok ? 'ok' : 'err');
+    if (j.ok) { $('vbox').style.display = ''; $('cd').focus(); setTimeout(() => { $('sb').disabled = false; $('sb').textContent = '인증번호 다시 받기'; }, 30000); } else $('sb').disabled = false;
+  };
+  window.smsVerify = async () => {
+    $('vb').disabled = true; say('m', '확인 중...');
+    const j = await call({ a: 'smsverify', phone: ph(), code: $('cd').value }).catch(net);
+    if (j.ok) { pt = j.pt; $('vbox').style.display = 'none'; $('sb').style.display = 'none'; $('ph').readOnly = true; say('m', '✅ 휴대폰 인증 완료. 이름을 입력하고 출석하세요.', 'ok'); }
+    else { say('m', j.error, 'err'); $('vb').disabled = false; }
   };
   window.go = () => {
     const n = $('n').value.trim(); if (!n) return say('m', '이름을 입력하세요', 'err');
-    if (!kt) return say('m', '먼저 카카오 로그인을 해주세요', 'err');
+    if (!pt) return say('m', '먼저 휴대폰 인증을 해주세요', 'err');
     $('go').disabled = true; say('m', '위치 확인 중...');
     gps(async p => {
       say('m', '출석 처리 중...');
-      const j = await call({ a: 'checkin', b: P.get('c'), t: P.get('t'), name: n, dev: dev, kt: kt, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
+      const j = await call({ a: 'checkin', b: P.get('c'), t: P.get('t'), name: n, dev: dev, pt: pt, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }).catch(net);
       say('m', j.msg || j.error, j.success ? 'ok' : 'err'); $('go').disabled = false;
     }, e => { say('m', '위치 권한을 허용해주세요 (' + e + ')', 'err'); $('go').disabled = false; });
   };
