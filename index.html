@@ -88,27 +88,45 @@ if (P.get('c')) {
     + field('ph', '휴대폰 번호', 'tel', '본인 확인용 — 번호는 저장하지 않고 암호화된 값만 기록됩니다')
     + '<div style="margin:6px 0 10px;font-size:13px;line-height:1.5"><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="agree" style="margin-top:3px"><span><b>[필수]</b> 개인정보 수집·이용에 동의합니다</span></label>'
     + '<details style="margin:4px 0 0 24px;opacity:.85"><summary style="cursor:pointer">자세히 보기</summary>'
-    + '<div style="margin-top:4px"><b>목적</b> 교육 출석 확인(본인 확인·대리출석 방지)<br><b>항목</b> 휴대폰 번호(인증 후 암호화된 값만 보관), 이름, 출석 시각, 위치(거리·주소 판정, 좌표는 저장 안 함), 기기 식별값<br><b>보관</b> 교육 종료일 다음 날(종료일 미지정 시 출석일로부터 1개월)에 이름 일부 가림 처리, 위치·기기 정보 삭제<br><b>위탁</b> 문자 발송(솔라피), 위치→주소 변환(네이버 클라우드), 데이터 저장(구글)<br>동의를 거부할 수 있으나, 거부하면 출석 확인이 어렵습니다.</div></details></div>'
+    + '<div style="margin-top:4px"><b>목적</b> 교육 출석 확인(본인 확인·대리출석 방지)<br><b>항목</b> 휴대폰 번호(인증 후 암호화된 값만 보관), 이름, 출석 시각, 위치(거리·주소 판정, 좌표는 저장 안 함), 기기 식별값<br><b>보관</b> 교육 종료일 다음 날(종료일 미지정 시 출석일로부터 1개월)에 이름 일부 가림 처리, 위치·기기 정보 삭제<br><b>위탁</b> 문자 발송·본인 인증(솔라피 또는 구글 Firebase), 위치→주소 변환(네이버 클라우드), 데이터 저장(구글)<br>동의를 거부할 수 있으나, 거부하면 출석 확인이 어렵습니다.</div></details></div>'
     + '<button class="btn ghost" id="sb" onclick="smsSend()">인증번호 받기</button>'
     + '<div id="vbox" style="display:none">' + field('cd', '인증번호 6자리', 'tel') + '<button class="btn ghost" id="vb" onclick="smsVerify()">인증 확인</button></div>'
-    + field('n', '이름') + '<button class="btn" id="go" onclick="go()">출석하기</button><p id="m" class="msg"></p>'));
+    + '<div id="rcv"></div>' + field('n', '이름') + '<button class="btn" id="go" onclick="go()">출석하기</button><p id="m" class="msg"></p>'));
   call({ a: 'branch', c: P.get('c'), t: P.get('t') }).then(j => { $('bn').textContent = j.name || j.error; if (j.error) $('bn').className = 'sub center errtxt'; }).catch(() => $('bn').textContent = '서버 연결 실패');
   // 기기 식별자: 이 브라우저에 한 번 만들어 저장 (같은 기기로 여러 사람 이름 출석하는 대리출석 탐지용)
   const dev = (() => { try { let d = localStorage.getItem('dv'); if (!d) { d = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()); localStorage.setItem('dv', d); } return d; } catch (e) { return ''; } })();
   // 본인 확인: 휴대폰 문자 인증 (번호는 저장 안 함, 서버가 해시만 기록). 통과하면 서명 토큰(pt)을 받아 출석 요청에 함께 보냄
   let pt = '';
   const ph = () => $('ph').value.replace(/\D/g, '');
+  // 서버에 Firebase 설정이 있으면 구글 전화번호 인증(문자 발송·확인은 구글), 없으면 솔라피 방식. 로드 실패 시에도 솔라피로 동작
+  let FB = null, cr = null;
+  const mkRv = () => { FB.rv = new firebase.auth.RecaptchaVerifier('rcv', { size: 'invisible' }); };
+  const ld = u => new Promise((ok, no) => { const e = document.createElement('script'); e.src = u; e.onload = ok; e.onerror = no; document.head.appendChild(e); });
+  const fbReady = call({ a: 'fbcfg' }).then(c => c.apiKey && ld('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js').then(() => ld('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js')).then(() => {
+    firebase.initializeApp({ apiKey: c.apiKey, authDomain: c.authDomain, projectId: c.projectId }); firebase.auth().languageCode = 'ko'; FB = { au: firebase.auth() }; mkRv();
+  })).catch(() => { FB = null; });
+  const fbErr = e => ({ 'auth/invalid-phone-number': '휴대폰 번호 형식이 올바르지 않습니다', 'auth/too-many-requests': '요청이 너무 많습니다. 잠시 후 다시 시도해주세요', 'auth/invalid-verification-code': '인증번호가 틀립니다', 'auth/code-expired': '인증번호가 만료되었습니다. 다시 받아주세요', 'auth/quota-exceeded': '오늘 문자 발송 한도를 넘었습니다. 관리자에게 문의해주세요' }[e && e.code] || '인증에 실패했습니다 (' + ((e && e.code) || e) + ')');
   window.smsSend = async () => {
     if (!/^01[016789]\d{7,8}$/.test(ph())) return say('m', '휴대폰 번호를 정확히 입력하세요', 'err');
     if (!$('agree').checked) return say('m', '개인정보 수집·이용에 동의해주세요', 'err');
     $('sb').disabled = true; say('m', '문자 발송 중...');
+    await fbReady;
+    if (FB) {
+      try { cr = await FB.au.signInWithPhoneNumber('+82' + ph().slice(1), FB.rv); say('m', '인증번호를 문자로 보냈습니다. 5분 안에 입력해주세요.', 'ok'); $('vbox').style.display = ''; $('cd').focus(); setTimeout(() => { $('sb').disabled = false; $('sb').textContent = '인증번호 다시 받기'; }, 30000); }
+      catch (e) { say('m', fbErr(e), 'err'); $('sb').disabled = false; try { FB.rv.clear(); } catch (x) { } mkRv(); }
+      return;
+    }
     const j = await call({ a: 'smssend', b: P.get('c'), t: P.get('t'), phone: ph(), dev: dev, consent: 1 }).catch(net);
     say('m', j.msg || j.error, j.ok ? 'ok' : 'err');
     if (j.ok) { $('vbox').style.display = ''; $('cd').focus(); setTimeout(() => { $('sb').disabled = false; $('sb').textContent = '인증번호 다시 받기'; }, 30000); } else $('sb').disabled = false;
   };
   window.smsVerify = async () => {
     $('vb').disabled = true; say('m', '확인 중...');
-    const j = await call({ a: 'smsverify', phone: ph(), code: $('cd').value }).catch(net);
+    let j;
+    if (FB) {
+      try { const u = await cr.confirm($('cd').value.trim()); j = await call({ a: 'fbverify', b: P.get('c'), t: P.get('t'), idToken: await u.user.getIdToken() }).catch(net); FB.au.signOut(); }
+      catch (e) { j = { error: fbErr(e) }; }
+    } else j = await call({ a: 'smsverify', phone: ph(), code: $('cd').value }).catch(net);
     if (j.ok) { pt = j.pt; $('vbox').style.display = 'none'; $('sb').style.display = 'none'; $('ph').readOnly = true; say('m', '✅ 휴대폰 인증 완료. 이름을 입력하고 출석하세요.', 'ok'); }
     else { say('m', j.error, 'err'); $('vb').disabled = false; }
   };
