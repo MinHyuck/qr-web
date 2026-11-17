@@ -194,7 +194,7 @@ else if (P.has('m')) {
     nextAt = j.roadAddress && j.ttl ? t0 + j.ttl : 0; if (!nextAt) { $('qrt').textContent = ''; $('bar').style.width = '0'; } // 서버가 알려준 남은 시간 기준으로 카운트다운
     if (!j.roadAddress) { // 교육장 미등록: 매니저가 현장에서 직접 등록 (GPS 검증)
       $('v').innerHTML = '<span class="errtxt">교육장이 아직 등록되지 않았습니다.</span><br>아래에서 교육장 주소를 등록하면 QR이 표시됩니다.'; $('qr').innerHTML = ''; lastTok = '';
-    } else $('v').innerHTML = '📍 <b>' + esc(j.roadAddress) + '</b> · 허용 반경 ' + j.radius + 'm';
+    } else $('v').innerHTML = '📍 <b>' + esc(j.roadAddress) + '</b> · 허용 반경 ' + j.radius + 'm<br><small class="hint">교육장 ' + Math.floor(j.radius / 2) + 'm 이내는 GPS 주소가 달라도 인증됩니다</small>';
     const url = location.origin + location.pathname + '?c=' + encodeURIComponent(j.id) + '&t=' + j.token; // ID에 한글이 있으면 QR 라이브러리가 오류 -> 인코딩
     if (j.roadAddress && j.token !== lastTok) { lastTok = j.token; $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, width: 260, height: 260 }); }
     if (!$('a').value) $('a').value = j.address;
