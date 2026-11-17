@@ -88,7 +88,7 @@ if (P.get('c')) {
     + field('ph', '휴대폰 번호', 'tel', '본인 확인용 — 번호는 저장하지 않고 암호화된 값만 기록됩니다')
     + '<div style="margin:6px 0 10px;font-size:13px;line-height:1.5"><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="agree" style="margin-top:3px"><span><b>[필수]</b> 개인정보 수집·이용에 동의합니다</span></label>'
     + '<details style="margin:4px 0 0 24px;opacity:.85"><summary style="cursor:pointer">자세히 보기</summary>'
-    + '<div style="margin-top:4px"><b>목적</b> 교육 출석 확인(본인 확인·대리출석 방지)<br><b>항목</b> 휴대폰 번호(인증 후 암호화된 값만 보관), 이름, 출석 시각, 위치(거리·주소 판정, 좌표는 저장 안 함), 기기 식별값<br><b>보관</b> 교육 종료일 다음 날(종료일 미지정 시 출석일로부터 6개월)에 이름 일부 가림 처리, 위치·기기 정보 삭제<br><b>위탁</b> 문자 발송(솔라피), 위치→주소 변환(네이버 클라우드), 데이터 저장(구글)<br>동의를 거부할 수 있으나, 거부하면 출석 확인이 어렵습니다.</div></details></div>'
+    + '<div style="margin-top:4px"><b>목적</b> 교육 출석 확인(본인 확인·대리출석 방지)<br><b>항목</b> 휴대폰 번호(인증 후 암호화된 값만 보관), 이름, 출석 시각, 위치(거리·주소 판정, 좌표는 저장 안 함), 기기 식별값<br><b>보관</b> 교육 종료일 다음 날(종료일 미지정 시 출석일로부터 1개월)에 이름 일부 가림 처리, 위치·기기 정보 삭제<br><b>위탁</b> 문자 발송(솔라피), 위치→주소 변환(네이버 클라우드), 데이터 저장(구글)<br>동의를 거부할 수 있으나, 거부하면 출석 확인이 어렵습니다.</div></details></div>'
     + '<button class="btn ghost" id="sb" onclick="smsSend()">인증번호 받기</button>'
     + '<div id="vbox" style="display:none">' + field('cd', '인증번호 6자리', 'tel') + '<button class="btn ghost" id="vb" onclick="smsVerify()">인증 확인</button></div>'
     + field('n', '이름') + '<button class="btn" id="go" onclick="go()">출석하기</button><p id="m" class="msg"></p>'));
