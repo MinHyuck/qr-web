@@ -151,7 +151,7 @@ else if (P.has('m')) {
   function loginUI() {
     html(card(head('지점 로그인', '지점 담당자 계정으로 로그인하세요.') + field('i', '아이디') + field('p', '비밀번호', 'password') + '<button class="btn" onclick="login()">로그인</button><p id="m" class="msg"></p>'
       + '<div class="links"><a href="#" onclick="signupUI();return false">계정 만들기</a><a href="#" onclick="findIdUI();return false">아이디 찾기</a><a href="#" onclick="findPwUI();return false">비밀번호 찾기</a></div>'));
-    window.login = async () => { say('m', '확인 중...'); const j = await call({ a: 'login', id: $('i').value, pw: $('p').value }).catch(net); if (j.session) { sessionStorage.setItem('s', j.session); manageUI(); } else say('m', j.error, 'err'); };
+    window.login = async () => { say('m', '확인 중...'); const j = await call({ a: 'login', id: $('i').value, pw: $('p').value }).catch(net); if (j.session) { sessionStorage.setItem('s', j.session); j.must ? pwUI('s', $('p').value, manageUI, true) : manageUI(); } else say('m', j.error, 'err'); };
   }
   window.signupUI = () => {
     html(card(head('계정 만들기', '신청 후 관리자가 승인하면 로그인할 수 있습니다.') + field('sn', '지점명') + field('sp', '담당자 이름') + field('se', '이메일', '', '아이디/비밀번호 찾기에 사용됩니다')
@@ -173,7 +173,7 @@ else if (P.has('m')) {
 
   let lastTok = '', timer, tick, nextAt = 0, busy = false;
   const ticker = () => { // QR 은 매일 자정에 바뀜 — 남은 시간 표시, 0초가 되면 새 QR 을 바로 받아옴
-    if (!nextAt) return; const ms = Math.max(0, nextAt - Date.now()), s = Math.ceil(ms / 1000);
+    if (!nextAt || !$('qrt')) return; const ms = Math.max(0, nextAt - Date.now()), s = Math.ceil(ms / 1000);
     $('qrt').textContent = '🔄 QR은 매일 자정에 바뀝니다 · 다음 갱신까지 ' + Math.floor(s / 3600) + '시간 ' + Math.floor(s % 3600 / 60) + '분'; $('bar').style.width = Math.min(100, ms / 864000) + '%';
     if (s === 0) { nextAt = Date.now() + 5000; load(); } // 실패해도 5초 뒤 재시도
   };
@@ -182,18 +182,12 @@ else if (P.has('m')) {
       + card('<h2>오늘 출석 현황</h2><div class="stat" id="cnt"></div><div class="tblwrap" id="rows"></div>')
       + card('<h2>교육장 주소 등록/변경</h2><p class="hint">교육장에서 이 기기의 GPS로 현재 위치를 확인한 뒤 저장됩니다.</p><button class="btn ghost" onclick="fillV()">📍 현재 위치로 주소 불러오기</button>'
         + '<input class="in" id="a" placeholder="불러온 주소가 여기에 표시됩니다 (필요하면 수정 가능)" style="margin-bottom:12px"><button class="btn" onclick="saveV()">저장</button><p id="s" class="msg"></p>')
-      + card('<h2>비밀번호 변경</h2>' + field('cp0', '현재 비밀번호 (임시 비밀번호 포함)', 'password') + field('cp1', '새 비밀번호', 'password', '6자 이상') + field('cp2', '새 비밀번호 확인', 'password')
-        + '<button class="btn" onclick="chPw()">변경</button><p id="cpm" class="msg"></p>')
-      + '<p class="foot"><a href="#" onclick="logout();return false">로그아웃</a></p>');
-    window.chPw = async () => {
-      if ($('cp1').value !== $('cp2').value) return say('cpm', '새 비밀번호 확인이 일치하지 않습니다', 'err');
-      say('cpm', '변경 중...'); const j = await call({ a: 'chpw', s: S(), pw: $('cp0').value, npw: $('cp1').value }).catch(net);
-      say('cpm', j.msg || j.error, j.ok ? 'ok' : 'err'); if (j.ok) ['cp0', 'cp1', 'cp2'].forEach(k => $(k).value = '');
-    };
+      + '<p class="foot"><a href="#" onclick="pwUI(\'s\',\'\',manageUI);return false">비밀번호 변경</a> · <a href="#" onclick="logout();return false">로그아웃</a></p>');
+    window.manageUI = manageUI;
     lastTok = ''; nextAt = 0; load(); clearInterval(timer); timer = setInterval(load, 10000); clearInterval(tick); tick = setInterval(ticker, 1000);
   }
   window.logout = () => { sessionStorage.removeItem('s'); clearInterval(timer); clearInterval(tick); nextAt = 0; loginUI(); };
-  async function load() { if (busy) return; busy = true; try { await loadInner(Date.now()); } finally { busy = false; } } // 겹쳐서 요청하지 않게
+  async function load() { if (busy || !$('qr')) return; busy = true; try { await loadInner(Date.now()); } finally { busy = false; } } // 겹쳐서 요청하지 않게
   async function loadInner(t0) {
     const j = await call({ a: 'my', s: S() }).catch(() => ({ error: 'net' })); if (j.error === 'login') return logout();
     if (j.error) return $('v').innerHTML = '<span class="errtxt">불러오기 실패: ' + esc(j.error === 'net' ? '서버에 연결할 수 없습니다 (인터넷 확인)' : j.error) + '</span>';
@@ -203,7 +197,7 @@ else if (P.has('m')) {
       $('v').innerHTML = '<span class="errtxt">교육장이 아직 등록되지 않았습니다.</span><br>아래에서 교육장 주소를 등록하면 QR이 표시됩니다.'; $('qr').innerHTML = ''; lastTok = '';
     } else $('v').innerHTML = '📍 <b>' + esc(j.roadAddress) + '</b> · 허용 반경 ' + j.radius + 'm<br><small class="hint">교육장 ' + Math.floor(j.radius / 2) + 'm 이내는 GPS 주소가 달라도 인증됩니다</small>';
     const url = location.origin + location.pathname + '?c=' + encodeURIComponent(j.id) + '&t=' + j.token; // ID에 한글이 있으면 QR 라이브러리가 오류 -> 인코딩
-    if (j.roadAddress && j.token !== lastTok) { lastTok = j.token; $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, width: 260, height: 260 }); }
+    if (j.roadAddress && j.token !== lastTok) { lastTok = j.token; $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, width: 260, height: 260 }); $('qr').removeAttribute('title'); } // QR 라이브러리가 마우스를 올리면 주소(토큰 포함)를 툴팁으로 띄우므로 제거
     if (!$('a').value) $('a').value = j.address;
     const okN = new Set(j.rows.filter(x => x.final === 'O').map(x => x.name)).size, failN = j.rows.filter(x => x.final !== 'O').length; // 같은 이름 중복 출석은 1명으로
     $('cnt').innerHTML = '<span class="num">' + okN + '</span><span>명 출석</span>' + (failN ? '<span class="fail">실패 시도 ' + failN + '건</span>' : '');
@@ -237,7 +231,20 @@ function adminLoginUI() {
     + '<div class="links"><a href="#" onclick="adminSignupUI();return false">계정 만들기</a></div>'));
   window.alogin = async () => {
     say('m', '확인 중...'); const j = await call({ a: 'alogin', id: $('i').value, pw: $('p').value }).catch(net);
-    if (j.session) { sessionStorage.setItem('as', j.session); viewUI({ s: j.session }); } else say('m', j.error, 'err');
+    if (j.session) { const go = () => viewUI({ s: j.session }); sessionStorage.setItem('as', j.session); j.must ? pwUI('as', $('p').value, go, true) : go(); } else say('m', j.error, 'err');
+  };
+}
+
+// 비밀번호 변경 화면 (지점 's' / 조회계정 'as' 세션). forced=true 는 임시 비밀번호로 막 로그인한 경우: 현재 비밀번호(cur)는 방금 입력한 값을 그대로 씀
+function pwUI(sk, cur, done, forced) {
+  $('shell').classList.remove('wide');
+  html(card(head('비밀번호 변경', forced ? '임시 비밀번호로 로그인했습니다.<br>사용할 새 비밀번호를 설정해주세요.' : '') + (forced ? '' : field('cp0', '현재 비밀번호', 'password')) + field('cp1', '새 비밀번호', 'password', '6자 이상') + field('cp2', '새 비밀번호 확인', 'password')
+    + '<button class="btn" onclick="chPw()">변경</button><p id="cpm" class="msg"></p>' + (forced ? '' : '<div class="links"><a href="#" onclick="pwBack();return false">← 돌아가기</a></div>')));
+  window.pwBack = done;
+  window.chPw = async () => {
+    if ($('cp1').value !== $('cp2').value) return say('cpm', '새 비밀번호 확인이 일치하지 않습니다', 'err');
+    say('cpm', '변경 중...'); const j = await call({ a: 'chpw', s: sessionStorage.getItem(sk), pw: forced ? cur : $('cp0').value, npw: $('cp1').value }).catch(net);
+    say('cpm', j.msg || j.error, j.ok ? 'ok' : 'err'); if (j.ok) setTimeout(done, 1200);
   };
 }
 
@@ -258,10 +265,11 @@ function viewUI(auth) {
   let rows = [], branches = [], bid = '';
   html(card('<div class="row between"><div><h1 id="h">출석 현황</h1><p class="sub" id="meta" style="margin:0">불러오는 중...</p></div>'
       + '<div class="row"><input class="in date" id="d" type="date" value="' + today + '" onchange="vload()"><button class="btn ghost sm" onclick="csv()">⬇ 엑셀(CSV)</button>'
-      + (auth.s ? '<button class="btn ghost sm" onclick="adminOut()">로그아웃</button>' : '') + '</div></div><div class="chips" id="sum"></div>')
+      + (auth.s ? '<button class="btn ghost sm" onclick="pwUI(\'as\',\'\',()=>viewUI({s:sessionStorage.getItem(\'as\')}))">비밀번호 변경</button><button class="btn ghost sm" onclick="adminOut()">로그아웃</button>' : '') + '</div></div><div class="chips" id="sum"></div>')
     + card('<div class="tblwrap" id="tb"></div>'));
   window.adminOut = () => { sessionStorage.removeItem('as'); location.href = location.pathname + '?admin'; };
   window.vload = async () => {
+    if (!$('d')) return; // 비밀번호 변경 화면 등 다른 화면이면 갱신 안 함
     const j = await call({ a: 'view', ...auth, d: $('d').value }).catch(net);
     if (j.error === 'login') return window.adminOut(); if (j.error) return $('meta').innerHTML = '<span class="errtxt">' + esc(j.error) + '</span>';
     rows = j.rows; branches = j.branches;
@@ -281,6 +289,6 @@ function viewUI(auth) {
   window.csv = () => { const q = s => '"' + String(s ?? '').replace(/"/g, '""') + '"';
     const t = '﻿일시,지점,이름,결과,거리(m),등록 교육장,확인된 주소\r\n' + rows.map(r => [r.ts, r.branch, r.name, r.final === 'O' ? '출석' : '실패', r.dist, r.venue, r.gps].map(q).join(',')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([t], { type: 'text/csv;charset=utf-8' })); a.download = 'attendance_' + $('d').value + '.csv'; a.click(); };
-  vload(); setInterval(vload, 10000);
+  clearInterval(window._vt); vload(); window._vt = setInterval(vload, 10000);
 }
 </script></body></html>
