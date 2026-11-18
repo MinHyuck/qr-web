@@ -182,7 +182,14 @@ else if (P.has('m')) {
       + card('<h2>오늘 출석 현황</h2><div class="stat" id="cnt"></div><div class="tblwrap" id="rows"></div>')
       + card('<h2>교육장 주소 등록/변경</h2><p class="hint">교육장에서 이 기기의 GPS로 현재 위치를 확인한 뒤 저장됩니다.</p><button class="btn ghost" onclick="fillV()">📍 현재 위치로 주소 불러오기</button>'
         + '<input class="in" id="a" placeholder="불러온 주소가 여기에 표시됩니다 (필요하면 수정 가능)" style="margin-bottom:12px"><button class="btn" onclick="saveV()">저장</button><p id="s" class="msg"></p>')
+      + card('<h2>비밀번호 변경</h2>' + field('cp0', '현재 비밀번호 (임시 비밀번호 포함)', 'password') + field('cp1', '새 비밀번호', 'password', '6자 이상') + field('cp2', '새 비밀번호 확인', 'password')
+        + '<button class="btn" onclick="chPw()">변경</button><p id="cpm" class="msg"></p>')
       + '<p class="foot"><a href="#" onclick="logout();return false">로그아웃</a></p>');
+    window.chPw = async () => {
+      if ($('cp1').value !== $('cp2').value) return say('cpm', '새 비밀번호 확인이 일치하지 않습니다', 'err');
+      say('cpm', '변경 중...'); const j = await call({ a: 'chpw', s: S(), pw: $('cp0').value, npw: $('cp1').value }).catch(net);
+      say('cpm', j.msg || j.error, j.ok ? 'ok' : 'err'); if (j.ok) ['cp0', 'cp1', 'cp2'].forEach(k => $(k).value = '');
+    };
     lastTok = ''; nextAt = 0; load(); clearInterval(timer); timer = setInterval(load, 10000); clearInterval(tick); tick = setInterval(ticker, 1000);
   }
   window.logout = () => { sessionStorage.removeItem('s'); clearInterval(timer); clearInterval(tick); nextAt = 0; loginUI(); };
