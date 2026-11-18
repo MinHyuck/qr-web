@@ -199,7 +199,7 @@ else if (P.has('m')) {
     const url = location.origin + location.pathname + '?c=' + encodeURIComponent(j.id) + '&t=' + j.token; // ID에 한글이 있으면 QR 라이브러리가 오류 -> 인코딩
     if (j.roadAddress && j.token !== lastTok) { lastTok = j.token; $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, width: 260, height: 260 }); $('qr').removeAttribute('title'); } // QR 라이브러리가 마우스를 올리면 주소(토큰 포함)를 툴팁으로 띄우므로 제거
     if (!$('a').value) $('a').value = j.address;
-    const okN = new Set(j.rows.filter(x => x.final === 'O').map(x => x.name)).size, failN = j.rows.filter(x => x.final !== 'O').length; // 같은 이름 중복 출석은 1명으로
+    const okN = new Set(j.rows.filter(x => x.final === 'O').map(x => x.u || x.name)).size, failN = j.rows.filter(x => x.final !== 'O').length; // 같은 사람(휴대폰 인증 기준)의 중복 출석은 1명, 동명이인은 각각. 인증ID 없는 옛 기록은 이름 기준
     $('cnt').innerHTML = '<span class="num">' + okN + '</span><span>명 출석</span>' + (failN ? '<span class="fail">실패 시도 ' + failN + '건</span>' : '');
     $('rows').innerHTML = j.rows.length ? '<table class="tbl"><tr><th>시각</th><th>이름</th><th>결과</th><th>거리</th></tr>' + j.rows.map(x => '<tr><td>' + esc(String(x.ts).slice(11)) + '</td><td>' + esc(x.name) + '</td><td><span class="badge ' + (x.final === 'O' ? 'ok">출석' : 'no">실패') + '</span>' + (x.chk ? ' <span title="이전과 다른 카카오계정/이름 조합">⚠확인필요</span>' : '') + '</td><td>' + esc(x.dist) + 'm</td></tr>').join('') + '</table>'
       : '<div class="empty">아직 출석한 사람이 없습니다.</div>';
@@ -278,7 +278,7 @@ function viewUI(auth) {
   };
   window.sb = id => { bid = id; draw(); };
   window.draw = () => {
-    const cnt = b => new Set(rows.filter(r => r.bid === b && r.final === 'O').map(r => r.name)).size, total = branches.reduce((s, b) => s + cnt(b.id), 0);
+    const cnt = b => new Set(rows.filter(r => r.bid === b && r.final === 'O').map(r => r.u || r.name)).size, total = branches.reduce((s, b) => s + cnt(b.id), 0);
     $('sum').innerHTML = '<button class="chip ' + (bid ? '' : 'on') + '" onclick="sb(\'\')">전체 <b>' + total + '명</b></button>'
       + branches.map(b => '<button class="chip ' + (bid === b.id ? 'on' : '') + '" onclick="sb(\'' + esc(b.id) + '\')">' + esc(b.name) + ' <b>' + cnt(b.id) + '명</b></button>').join('');
     const list = rows.filter(r => !bid || r.bid === bid);
