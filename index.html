@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>출석 QR</title>
+<html lang="ko"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width,initial-scale=1"><title>출석 QR</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css">
 <style>
 :root{--bg:#f1f5f9;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#0ea5e9;--accent-d:#0284c7;--accent-bg:#e0f2fe;--ok:#15803d;--ok-bg:#dcfce7;--err:#b91c1c;--err-bg:#fee2e2;--shadow:0 1px 2px rgba(15,23,42,.05),0 8px 24px rgba(15,23,42,.06)}
@@ -64,7 +64,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbxh0OyKcQuuKDMPtRfaKHj2bMvDmw6jkRLjE8jz2WGFuFfS9GY6f-B5ToQaQ79r_xw/exec';
-const $ = id => document.getElementById(id), P = new URLSearchParams(location.search);
+// QR/조회 링크의 토큰·키가 주소창에 남지 않게: 값은 이 탭의 sessionStorage 에 보관(새로고침 대비)하고 주소창은 깨끗하게 바꿈
+const Q = (() => { try { const s = location.search;
+  if (/[?&](c|v)=/.test(s)) { sessionStorage.setItem('qrp', s); history.replaceState(null, '', location.pathname); return s; }
+  if (!s) return sessionStorage.getItem('qrp') || '';
+} catch (e) { } return location.search; })();
+const $ = id => document.getElementById(id), P = new URLSearchParams(Q);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const call = o => fetch(API, { method: 'POST', body: JSON.stringify(o) }).then(r => r.json()); // text/plain 이라 CORS preflight 없음
 const html = h => $('app').innerHTML = h;
